@@ -48,6 +48,13 @@ export const TOWARD_USER_MIDI_MIN = 40; // 仮(E2≈82Hz。「ユーザーの声
 export const DURATION_MIN_MS = 800; // 仮
 export const DURATION_MAX_MS = 4000; // 仮
 
+// --- 音域チェック(Range Check。TRAINING_MODEL.md「音域チェック」/ AUDIO_ANALYSIS.md §8) ---
+export const RANGE_PASS_SECONDS = 6; // 仮(下降/上昇 各パスの長さ)
+export const RANGE_BIN_MIN_MS = 250; // 仮(半音ビンが「出せた」と数えられる最小有声時間)
+export const RANGE_MIN_BINS = 3; // 仮(これ未満しか出せなかったら測定失敗扱い)
+export const RANGE_CONF_DROP = 0.08; // 仮(基準confidenceからこれ以上落ちたら「余裕なし」)
+export const RANGE_JITTER_FACTOR = 1.8; // 仮(基準ジッターのこの倍数を超えたら「余裕なし」)
+
 // --- UX display (UX_TRAINING.md §4) ---
 export const DISPLAY_RANGE_CENTS = 200; // 仮
 export const ZONE_OK_CENTS = 50; // 仮

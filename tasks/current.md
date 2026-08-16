@@ -28,6 +28,9 @@
 | T27 | 公開(Q4): 初回commit+GitHub公開リポジトリ+Pages自動デプロイ(テスト全緑ゲート付き) | Fable | ✅ 完了(2026-08-16)— **https://r19880820.github.io/vocal-trainer/** 稼働中 |
 | T28 | **Phase 7 成長記録**: ADR-004(localStorage)+progressStore+週次集計+「せいちょう」画面+ホーム配線 | Sonnet(実装)/Fable(レビュー・デプロイ) | ✅ 完了・本番反映済(290テスト全PASS、commit d127ab4) |
 
+| T29 | 目標音のスケール音化+音名表示+ズレ傾向+方向付きアドバイス(ユーザーフィードバック2件) | Fable | ✅ 完了・本番反映済(commit b8440e9, 1e7b345。295テスト) |
+| T30 | **音域チェック(Vocal Range前倒し — ユーザー発案)**: グリッサンド測定→楽に出せる範囲/がんばれば範囲→お手本プール自動適応 | Sonnet(実装)/Fable(設計・検証) | ✅ 完了(310テスト全PASS。副産物: visibilitychange時のrangeSessionマイク解放バグを実装中に検出・修正済) |
+
 ## 次の候補(Phase 6 以降 — 着手前にユーザー確認不要、推奨順)
 
 1. **Phase 6**: Level 1(音の上下)→ Level 3(2音)→ Level 4(メロディ)。interval/direction 算出の実装解禁

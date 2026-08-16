@@ -10,16 +10,34 @@ import {
 import { makeLevel2Spec, type VoiceRange } from '../core/exercise/level2';
 import type { ExerciseSpec } from '../core/types';
 import { midiToSolfege } from '../core/pitch/scale';
-import { loadSettings, saveSettings } from '../data/settings';
+import { loadSettings, saveSettings, type Settings } from '../data/settings';
 import { createProgressStore } from '../data/progressStore';
 import { Indicator } from './Indicator';
 import { ProgressScreen } from './ProgressScreen';
+import { RangeCheckScreen } from './RangeCheckScreen';
 import { liveStatusText, resultCopy, signedMedianCentsVsTarget } from './copy';
 
-type Screen = 'home' | 'micCheck' | 'range' | 'training' | 'result' | 'progress';
+type Screen = 'home' | 'micCheck' | 'range' | 'training' | 'result' | 'progress' | 'rangeCheck';
 
 // localStorage を包むだけの薄いラッパーなのでモジュールスコープで1つ生成すれば十分(ADR-004)
 const progressStore = createProgressStore();
+
+/** 音域チェック済みか(型ガード。trueの分岐ではrangeComfortLow/HighMidiがnumberへ narrow される)。 */
+function hasMeasuredRange(
+  s: Settings
+): s is Settings & { rangeComfortLowMidi: number; rangeComfortHighMidi: number } {
+  return s.rangeComfortLowMidi !== null && s.rangeComfortHighMidi !== null;
+}
+
+/** 実数MIDI→標準MIDIオクターブ番号(60=C4)。RC-3同様の表示専用ヘルパー(UX_TRAINING §5b)。 */
+function octaveOf(midi: number): number {
+  return Math.floor(Math.round(midi) / 12) - 1;
+}
+
+function noteLabel(midi: number | null): string {
+  if (midi === null) return '';
+  return `${midiToSolfege(midi)}${octaveOf(midi)}`;
+}
 
 const page: React.CSSProperties = {
   padding: 20,
@@ -102,6 +120,9 @@ export function TrainingApp() {
   const [micHint, setMicHint] = useState(false);
   // いま練習中の目標(SC-4の音名表示用。「何が難しいのか分からない」対策 — UX §2 SC-4)
   const [currentSpec, setCurrentSpec] = useState<ExerciseSpec | null>(null);
+  // 音域チェック専用のAudioSession(engineが内部に持つものとは別インスタンス。マイクリソースの
+  // 競合を避けるため、engine.cancel()してから生成する — 詳細は最終報告のAudioSession共有方式を参照)。
+  const rangeSessionRef = useRef<AudioSession | null>(null);
 
   if (engineRef.current === null) {
     engineRef.current = new ExerciseEngine(new AudioSession(), {
@@ -126,11 +147,14 @@ export function TrainingApp() {
   }
   const engine = engineRef.current;
 
-  // バックグラウンド遷移・着信 → 録音破棄して idle(TRAINING_MODEL.md 遷移表)
+  // バックグラウンド遷移・着信 → 録音破棄して idle(TRAINING_MODEL.md 遷移表)。
+  // 音域チェック中も同じ安全則を適用する(rangeSessionRefのマイクも必ず解放する — 放置するとバックグラウンドでもマイクが起動したままになる)。
   useEffect(() => {
     const onHide = () => {
       if (document.visibilityState === 'hidden') {
         engine.cancel();
+        rangeSessionRef.current?.stop();
+        rangeSessionRef.current = null;
         setScreen('home');
       }
     };
@@ -141,7 +165,11 @@ export function TrainingApp() {
   const startTraining = (range: VoiceRange) => {
     setErrorMsg(null);
     setScreen('training');
-    const spec = makeLevel2Spec(range);
+    // 音域チェック済みなら「楽に出せる範囲」を優先(TRAINING_MODEL.md「目標音の範囲」)。
+    const comfortRange = hasMeasuredRange(settings)
+      ? { lowMidi: settings.rangeComfortLowMidi, highMidi: settings.rangeComfortHighMidi }
+      : null;
+    const spec = makeLevel2Spec(range, undefined, comfortRange);
     setCurrentSpec(spec);
     void engine.beginExercise(spec);
   };
@@ -153,6 +181,9 @@ export function TrainingApp() {
       setMicHint(false);
       window.setTimeout(() => setMicHint(true), 5000);
       void engine.startSession();
+    } else if (hasMeasuredRange(settings)) {
+      // 測定済みなら声域選択(SC-3)をスキップしてよい(UX_TRAINING.md §2)
+      startTraining(settings.range ?? 'low');
     } else if (!settings.range) {
       setScreen('range');
     } else {
@@ -164,7 +195,8 @@ export function TrainingApp() {
     const next = { ...settings, firstRunDone: true };
     setSettings(next);
     saveSettings(next);
-    if (next.range) startTraining(next.range);
+    if (hasMeasuredRange(next)) startTraining(next.range ?? 'low');
+    else if (next.range) startTraining(next.range);
     else setScreen('range');
   };
 
@@ -177,6 +209,26 @@ export function TrainingApp() {
 
   const goHome = () => {
     engine.cancel();
+    setScreen('home');
+  };
+
+  // ---- 音域チェック(RC-1〜RC-3)への遷移 ----
+  const onStartRangeCheck = () => {
+    setErrorMsg(null);
+    // engine.cancel()で先にマイクを解放してから、音域チェック専用のAudioSessionを新規生成する
+    // (同一portをengineとRangeCheckScreenで共有すると、engineの内部状態機械と競合しうるため)。
+    engine.cancel();
+    rangeSessionRef.current = new AudioSession();
+    setScreen('rangeCheck');
+  };
+
+  const onRangeCheckDone = (next: Settings) => {
+    setSettings(next);
+  };
+
+  const onRangeCheckBack = () => {
+    rangeSessionRef.current?.stop();
+    rangeSessionRef.current = null;
     setScreen('home');
   };
 
@@ -200,6 +252,23 @@ export function TrainingApp() {
         <button style={bigBtn} onClick={onStart}>
           ▶ はじめる
         </button>
+        {hasMeasuredRange(settings) ? (
+          <>
+            <p style={{ fontSize: 13, color: '#888', marginTop: 12 }}>
+              あなたの音域: {noteLabel(settings.rangeComfortLowMidi)} 〜 {noteLabel(settings.rangeComfortHighMidi)}
+            </p>
+            <button
+              style={{ ...subBtn, fontSize: 14, padding: '10px 16px', marginTop: 4 }}
+              onClick={onStartRangeCheck}
+            >
+              音域を測りなおす
+            </button>
+          </>
+        ) : (
+          <button style={bigBtn} onClick={onStartRangeCheck}>
+            音域をはかる
+          </button>
+        )}
         {practiceCount > 0 && (
           <button style={subBtn} onClick={() => setScreen('progress')}>
             せいちょうを見る
@@ -406,6 +475,11 @@ export function TrainingApp() {
   // ---- 成長記録画面(Phase 7) ----
   if (screen === 'progress') {
     return <ProgressScreen store={progressStore} onBack={() => setScreen('home')} />;
+  }
+
+  // ---- 音域チェック(RC-1〜RC-3) ----
+  if (screen === 'rangeCheck' && rangeSessionRef.current) {
+    return <RangeCheckScreen session={rangeSessionRef.current} onDone={onRangeCheckDone} onBack={onRangeCheckBack} />;
   }
 
   return null;

@@ -32,7 +32,9 @@ Phase 0   Phase 0.5  Phase 1     Phase 2    Phase 3    Phase 4    Phase 5      P
 | 5 | 「次の練習」の提案と実起動 | ✅ 完了 | — |
 | — | **MVP品質ゲート** | ✅ **全通過(2026-08-16)** | 較正完了(GATE_FLOOR -55→-62ほか)+ test-retest合格(同一Exercise 3回で診断一致 — ユーザー実機報告) |
 | — | **公開(Q4)** | ✅ 完了(2026-08-16) | **https://r19880820.github.io/vocal-trainer/** — GitHub Pages、mainへのpushでテスト全緑→自動デプロイ |
-| — | **次フェーズ選定** | 🔴 **← いまここ** | Phase 7(成長記録)完了。残る未着手は Phase 6(Level追加)/8(リズム)/9(曲フレーズ)/10(AIコーチ) — 次の着手はuser判断待ち |
+| — | **フィードバック反映(2026-08-16)** | ✅ 完了 | 目標音のドレミ音階化 / 音名表示+ズレ傾向+方向付きアドバイス / **音域チェック**(下記) |
+| — | **音域チェック(Vocal Range初版・前倒し)** | ✅ 完了(2026-08-16 ユーザー発案) | グリッサンド測定→「楽に出せる範囲/がんばれば」→お手本プール自動適応。RANGE_*閾値は仮値(実測で較正) |
+| — | **次フェーズ** | 🔴 **← いまここ** | Phase 6(Level 1 音の上下 → 3 → 4)を推奨順で着手予定 |
 | 6 | Level 1(音の上下)/ 3(2音)/ 4(メロディ) | ⬜ 未着手 | |
 | 7 | 成長記録(週ごとの上達グラフ) | ✅ 完了 | ADR-004(localStorage)+週次集計(core/progress/aggregate.ts)+成長記録画面(UX_TRAINING.md §7) |
 | 8 | リズム練習 | ⬜ 未着手 | |
@@ -48,7 +50,7 @@ Phase 0   Phase 0.5  Phase 1     Phase 2    Phase 3    Phase 4    Phase 5      P
 
 ## 品質の現況
 
-- テスト 290件 全PASS / 型チェック・ビルド成功(2026-08-16 Phase 7実装後)
+- テスト 310件 全PASS / 型チェック・ビルド成功(2026-08-16 音域チェック実装後)
 - Opus敵対レビュー2周済(Critical 5+Major 10 → 全修正 → 再検証合格)
 - 既知の技術負債・較正時の観測項目: [../tasks/current.md](../tasks/current.md) 末尾
 
@@ -56,4 +58,4 @@ Phase 0   Phase 0.5  Phase 1     Phase 2    Phase 3    Phase 4    Phase 5      P
 
 | # | 論点 | 状態 |
 |---|---|---|
-| Q4 | 公開ホスティング先(外出先でも使えるURL。GitHub Pages / Vercel等) | OPEN(MVP品質ゲート通過後に相談) |
+| Q4 | 公開ホスティング先 | **CLOSED** — GitHub Pages 稼働中(https://r19880820.github.io/vocal-trainer/) |
