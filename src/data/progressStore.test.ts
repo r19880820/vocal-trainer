@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createProgressStore, type StorageLike } from './progressStore';
 import type { ExerciseResult, ExerciseSpec } from '../core/types';
+import { PARAMS_VERSION } from '../core/constants';
 
 // テストはインメモリ StorageLike を注入する(ADR-004: 将来IndexedDBへの差し替えを見据えた抽象化)
 function memoryStorage(initial?: Record<string, string>): StorageLike {
@@ -166,5 +167,57 @@ describe('progressStore', () => {
     };
     const store = createProgressStore(storage);
     expect(() => store.clear()).not.toThrow();
+  });
+});
+
+describe('progressStore.appendSnapshot(Level 1「音の上下」等、ExerciseResultを経由しないドリル用)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-16T00:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('指定した skillId/value/exerciseId で1件だけ SkillSnapshot を追記する', () => {
+    const store = createProgressStore(memoryStorage());
+    store.appendSnapshot('directionAccuracy', 0.8, 'level1-123');
+    const all = store.loadAll();
+    expect(all).toHaveLength(1);
+    expect(all[0]).toEqual({
+      skillId: 'directionAccuracy',
+      value: 0.8,
+      date: '2026-08-16T00:00:00.000Z',
+      exerciseId: 'level1-123',
+      paramsVersion: PARAMS_VERSION,
+    });
+  });
+
+  it('既存の append() 履歴を上書きせず末尾に追記する', () => {
+    const store = createProgressStore(memoryStorage());
+    store.append(makeResult());
+    store.appendSnapshot('directionAccuracy', 0.6, 'level1-456');
+    const all = store.loadAll();
+    expect(all).toHaveLength(5); // append分4件 + appendSnapshot分1件
+    expect(all[all.length - 1]?.skillId).toBe('directionAccuracy');
+  });
+
+  it('appendSnapshot は practiceCount(pitchAccuracy基準)を増やさない', () => {
+    const store = createProgressStore(memoryStorage());
+    store.appendSnapshot('directionAccuracy', 1, 'level1-789');
+    expect(store.practiceCount()).toBe(0);
+  });
+
+  it('setItem が例外を投げても握りつぶして継続する', () => {
+    const storage: StorageLike = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('quota exceeded');
+      },
+      removeItem: () => {},
+    };
+    const store = createProgressStore(storage);
+    expect(() => store.appendSnapshot('directionAccuracy', 0.5, 'level1-x')).not.toThrow();
   });
 });

@@ -167,6 +167,10 @@ cents = 1200 * log2(userHz / targetHz)   // features/scoring層で算出
 | RANGE_STEP_MATCH_CENTS / RANGE_STEP_COMFORT_CENTS | 150 / 75 | 仮(matched/comfortable判定 — TRAINING_MODEL.md 音域チェック) |
 | RANGE_STEP_MIN_VOICED_MS / RANGE_MAX_STEPS | 400 / 8 | 仮(ステップ有効最小有声時間 / 各方向の最大段数) |
 | RANGE_STEP_COMFORT_SIGMA_CENTS | 50 | 仮(comfortable=ぶれずに出せた、のσ上限) |
+| L1_TRIALS / L1_TONE_MS / L1_TONE_GAP_MS / L1_CAPTURE_MS | 5 / 600 / 250 / 4000 | 仮(Level 1 音の上下) |
+| L1_SEGMENT_MIN_VOICED_MS / L1_SEGMENT_GAP_MS | 300 / 250 | 仮(「んー、んー」の2区間分割) |
+| DIRECTION_SAME_CENTS | 50 | 仮(「同じ」判定幅) |
+| L1_MIN_INTERVAL_SEMITONES / L1_MAX_INTERVAL_SEMITONES / L1_SAME_PROB | 3 / 7 / 0.2 | 仮(出題) |
 | RANGE_MIN_COMFORT_BINS | 5 | 仮(保存済み「楽な範囲」の最小幅ガード — v1異常値対策) |
 | DISPLAY_RANGE_CENTS | ±200 | 仮(UX) |
 | ZONE_OK_CENTS / ZONE_NEAR_CENTS | 50 / 100 | 仮(UX) |

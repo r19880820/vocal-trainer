@@ -51,6 +51,7 @@ const SKILLS: SkillDef[] = [
   },
   { id: 'pitchStability', label: '声の安定', higherIsBetter: true, format: (v) => `${Math.round(v * 100)}%` },
   { id: 'attackAccuracy', label: '音の入り', higherIsBetter: true, format: (v) => `${Math.round(v * 100)}%` },
+  { id: 'directionAccuracy', label: '音の上下', higherIsBetter: true, format: (v) => `${Math.round(v * 100)}%` },
 ];
 
 function arrowFor(trend: Trend | null): string {

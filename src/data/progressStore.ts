@@ -1,6 +1,8 @@
 // Progress Tracking のストレージ実装。決定の正本は docs/decisions/ADR-004-progress-storage.md。
-// data/ は core/ を参照可、逆は禁止(ARCHITECTURE.md 依存ルール) — ここでは core/types の SkillSnapshot のみ使う。
+// data/ は core/ を参照可、逆は禁止(ARCHITECTURE.md 依存ルール) — ここでは core/types の SkillSnapshot と
+// core/constants の PARAMS_VERSION のみ使う。
 import type { ExerciseResult, SkillSnapshot } from '../core/types';
+import { PARAMS_VERSION } from '../core/constants';
 
 const KEY = 'vt.progress.v1';
 
@@ -14,6 +16,12 @@ export interface StorageLike {
 export interface ProgressStore {
   /** validity.isValid の結果のみ保存する。samples は絶対に含めない(ADR-004)。 */
   append(result: ExerciseResult): void;
+  /**
+   * ExerciseResult を経由しない単一の SkillSnapshot を直接追記する
+   * (Level 1「音の上下」等、Level 2の ExerciseResult 型を持たないドリルの結果保存用)。
+   * date=呼び出し時刻のISO 8601、paramsVersion=PARAMS_VERSION を自動付与する。
+   */
+  appendSnapshot(skillId: string, value: number, exerciseId: string): void;
   loadAll(): SkillSnapshot[];
   /** 保存済み(=validity ok)の練習回数 */
   practiceCount(): number;
@@ -57,12 +65,21 @@ function toSnapshots(result: ExerciseResult): SkillSnapshot[] {
   return snapshots;
 }
 
+/** 既存履歴の末尾へ snapshots を追記する共通処理(append / appendSnapshot で共有)。 */
+function appendMany(storage: StorageLike, snapshots: SkillSnapshot[]): void {
+  if (snapshots.length === 0) return;
+  const existing = readAll(storage);
+  writeAll(storage, [...existing, ...snapshots]);
+}
+
 export function createProgressStore(storage: StorageLike = localStorage): ProgressStore {
   return {
     append(result: ExerciseResult): void {
       if (!result.validity.isValid) return; // 無効測定で履歴を汚さない(ADR-004)
-      const existing = readAll(storage);
-      writeAll(storage, [...existing, ...toSnapshots(result)]);
+      appendMany(storage, toSnapshots(result));
+    },
+    appendSnapshot(skillId: string, value: number, exerciseId: string): void {
+      appendMany(storage, [{ skillId, value, date: new Date().toISOString(), exerciseId, paramsVersion: PARAMS_VERSION }]);
     },
     loadAll(): SkillSnapshot[] {
       return readAll(storage);

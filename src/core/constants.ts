@@ -58,6 +58,18 @@ export const RANGE_STEP_COMFORT_SIGMA_CENTS = 50; // 仮(comfortable判定: cent
 export const RANGE_MAX_STEPS = 8; // 仮(各パスの最大ステップ数)
 export const RANGE_MIN_COMFORT_BINS = 5; // 仮(保存済み「楽な範囲」の幅がこれ未満なら測定失敗として正直に返す — v1誤測定事故対策。TrainingAppの保存値ガードが使用中)
 
+// --- Level 1「音の上下」(TRAINING_MODEL.md「Level 1: 音の上下」/ AUDIO_ANALYSIS.md §8) ---
+export const L1_TRIALS = 5; // 仮(1セットの問題数)
+export const L1_TONE_MS = 600; // 仮(A/B各音の再生長)
+export const L1_TONE_GAP_MS = 250; // 仮(A→B間の無音)
+export const L1_CAPTURE_MS = 4000; // 仮(捕捉時間。「んー、んー」2回分)
+export const L1_SEGMENT_MIN_VOICED_MS = 300; // 仮(有効セグメントの最小有声時間)
+export const L1_SEGMENT_GAP_MS = 250; // 仮(セグメント分割の無音ギャップ)
+export const DIRECTION_SAME_CENTS = 50; // 仮(「同じ」判定幅)
+export const L1_MIN_INTERVAL_SEMITONES = 3; // 仮(出題の最小音程)
+export const L1_MAX_INTERVAL_SEMITONES = 7; // 仮(出題の最大音程)
+export const L1_SAME_PROB = 0.2; // 仮(B=Aとなる確率)
+
 // --- UX display (UX_TRAINING.md §4) ---
 export const DISPLAY_RANGE_CENTS = 200; // 仮
 export const ZONE_OK_CENTS = 50; // 仮
