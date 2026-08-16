@@ -9,6 +9,7 @@ import { snapToCMajor } from '../pitch/scale';
 import { sampleDurationsMs } from '../features/segment';
 import {
   DIRECTION_SAME_CENTS,
+  L1_FALLBACK_MIN_VOICED_MS,
   L1_MAX_INTERVAL_SEMITONES,
   L1_MIN_INTERVAL_SEMITONES,
   L1_SAME_PROB,
@@ -168,19 +169,44 @@ function median(values: number[]): number {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
+function classify(deltaCents: number): Direction {
+  return Math.abs(deltaCents) <= DIRECTION_SAME_CENTS ? 'same' : deltaCents > 0 ? 'up' : 'down';
+}
+
 /**
- * ユーザー発声(「んー、んー」)から方向を判定する(TRAINING_MODEL.md「ユーザー発声の分割」)。
- * 有声合計 >= L1_SEGMENT_MIN_VOICED_MS のセグメントの先頭2つを採用し、各セグメントの
- * midi中央値の差(cent)から判定する。2セグメント未満なら測定不能(detected=null)。
+ * ユーザー発声から方向を判定する(TRAINING_MODEL.md「ユーザー発声の分割」)。
+ * 1) 区切りが取れた場合(有声 >= L1_SEGMENT_MIN_VOICED_MS のセグメントが2つ以上):
+ *    先頭2セグメントの midi中央値の差(cent)で判定(最も正確)。
+ * 2) **フォールバック(2026-08-16 実地事故対応)**: 「んーんー」とつなげて歌う/区切りが
+ *    短い場合はセグメントが1つに融合する。その場合、全voicedサンプルを時系列で並べ、
+ *    最初の1/3 と 最後の1/3 の midi中央値の差で判定する(連続スライドでも方向は取れる)。
+ *    有声合計 < L1_FALLBACK_MIN_VOICED_MS なら測定不能(detected=null)。
  */
 export function evaluateDirection(processed: ProcessedPitchSample[]): DirectionEvaluation {
   const valid = splitVoicedSegments(processed).filter((seg) => seg.voicedMs >= L1_SEGMENT_MIN_VOICED_MS);
-  if (valid.length < 2) {
+  if (valid.length >= 2) {
+    const firstMidi = median(valid[0].samples.map((s) => s.midiNote));
+    const secondMidi = median(valid[1].samples.map((s) => s.midiNote));
+    const deltaCents = (secondMidi - firstMidi) * 100;
+    return { detected: classify(deltaCents), deltaCents, segments: valid.length };
+  }
+
+  // フォールバック: 前半 vs 後半
+  const durations = sampleDurationsMs(processed);
+  let totalVoicedMs = 0;
+  const voiced: ProcessedPitchSample[] = [];
+  for (let i = 0; i < processed.length; i++) {
+    if (processed[i].voicing === 'voiced') {
+      voiced.push(processed[i]);
+      totalVoicedMs += durations[i];
+    }
+  }
+  if (totalVoicedMs < L1_FALLBACK_MIN_VOICED_MS || voiced.length < 6) {
     return { detected: null, deltaCents: null, segments: valid.length };
   }
-  const firstMidi = median(valid[0].samples.map((s) => s.midiNote));
-  const secondMidi = median(valid[1].samples.map((s) => s.midiNote));
+  const third = Math.max(1, Math.floor(voiced.length / 3));
+  const firstMidi = median(voiced.slice(0, third).map((s) => s.midiNote));
+  const secondMidi = median(voiced.slice(voiced.length - third).map((s) => s.midiNote));
   const deltaCents = (secondMidi - firstMidi) * 100;
-  const detected: Direction = Math.abs(deltaCents) <= DIRECTION_SAME_CENTS ? 'same' : deltaCents > 0 ? 'up' : 'down';
-  return { detected, deltaCents, segments: valid.length };
+  return { detected: classify(deltaCents), deltaCents, segments: valid.length };
 }

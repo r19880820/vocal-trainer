@@ -243,7 +243,7 @@ export function Level1Screen({ session, onBack }: Props) {
         setTrialStage('feedback');
         setFeedback({
           kind: 'measureFail',
-          text: '「んー、んー」と2回に分けて歌ってみてください。もう一度どうぞ',
+          text: 'もう少し長めに「んー、んー」と歌ってみてください。もう一度どうぞ',
         });
         await sleep(L1_FEEDBACK_DISPLAY_MS);
         if (cancelledRef.current) return;
@@ -257,7 +257,7 @@ export function Level1Screen({ session, onBack }: Props) {
           setTrialStage('feedback');
           setFeedback({
             kind: 'measureFail',
-            text: '「んー、んー」と2回に分けて歌ってみてください。もう一度どうぞ',
+            text: 'もう少し長めに「んー、んー」と歌ってみてください。もう一度どうぞ',
           });
           await sleep(L1_FEEDBACK_DISPLAY_MS);
           if (cancelledRef.current) return;
@@ -291,7 +291,7 @@ export function Level1Screen({ session, onBack }: Props) {
     return (
       <div style={page}>
         <h2 style={{ fontSize: 20 }}>音の上下</h2>
-        <p>2つの音が鳴ります。同じように「んー、んー」と2回に分けて真似してください。</p>
+        <p>2つの音が鳴ります。同じように「んー、んー」と真似してください(つなげて「んーんー」でも大丈夫)。</p>
         <p>大事なのは高さピッタリではなく、2つ目の音が「上がるか・下がるか」です</p>
         {errorMsg && (
           <div style={card}>

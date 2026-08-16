@@ -243,3 +243,35 @@ describe('evaluateDirection', () => {
     expect(result.detected).toBe('up');
   });
 });
+
+
+// --- 2026-08-16 実地事故(全問測定不能)の回帰テスト: 前半/後半フォールバック ---
+describe('evaluateDirection fallback (merged/continuous humming)', () => {
+  it('「んーんー」とつなげて歌った(無音ギャップなし)場合でも方向を判定できる', () => {
+    const processed = buildTimeline([
+      { midi: 55, count: 60 }, // 前半 ソ3(720ms)
+      { midi: 60, count: 60 }, // 後半 ド4(720ms)— 区切りなしで連続
+    ]);
+    const r = evaluateDirection(processed);
+    expect(r.segments).toBeLessThan(2); // 従来方式では判定不能だったケース
+    expect(r.detected).toBe('up');
+  });
+
+  it('連続で下がる場合も down と判定する', () => {
+    const processed = buildTimeline([
+      { midi: 60, count: 60 },
+      { midi: 55, count: 60 },
+    ]);
+    expect(evaluateDirection(processed).detected).toBe('down');
+  });
+
+  it('1音を伸ばしただけなら same(測定不能にしない)', () => {
+    const processed = buildTimeline([{ midi: 57, count: 100 }]);
+    expect(evaluateDirection(processed).detected).toBe('same');
+  });
+
+  it('有声合計が L1_FALLBACK_MIN_VOICED_MS 未満なら測定不能のまま', () => {
+    const processed = buildTimeline([{ midi: 57, count: 30 }]); // 360ms < 600ms
+    expect(evaluateDirection(processed).detected).toBeNull();
+  });
+});
