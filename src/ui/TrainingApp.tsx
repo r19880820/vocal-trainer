@@ -32,6 +32,7 @@ type Screen =
   | 'level1'
   | 'level3'
   | 'menuIntro'
+  | 'menuStepIntro'
   | 'menuDone';
 
 // 「今日のメニュー」M-1の番号表示(UX_TRAINING.md §5e)。4ステップ固定(TRAINING_MODEL.md)なのでこの4文字で足りる。
@@ -318,7 +319,8 @@ export function TrainingApp() {
     setScreen('home');
   };
 
-  /** list[index] のステップを開始する(ステップ種別ごとに実行先を振り分ける)。
+  /** list[index] のステップへ進む。まず案内画面(M-2b)を挟み、[はじめる]で実行する
+   * (2026-08-17 ユーザー実走フィードバック「いま何の練習か分からないまま進んだ」対応)。
    * index が範囲外なら完了画面(M-3)へ。 */
   const startMenuStep = (list: MenuStep[], index: number) => {
     const step = list[index];
@@ -332,6 +334,12 @@ export function TrainingApp() {
     }
     setErrorMsg(null);
     setMenuIndex(index);
+    setScreen('menuStepIntro');
+  };
+
+  /** 案内画面(M-2b)の[はじめる]から呼ばれる: ステップ種別ごとに実行先を振り分ける。 */
+  const launchMenuStep = (step: MenuStep) => {
+    setErrorMsg(null);
     if (step.kind === 'level1Set') {
       // 音域チェック・Level1直接起動と同じ方式(engineのマイクを解放してから専用sessionを生成 — 二重マイク防止)
       engine.cancel();
@@ -511,6 +519,28 @@ export function TrainingApp() {
         </button>
       </div>
     );
+  }
+
+  // ---- M-2b ステップ案内(いま何の練習が始まるか — 2026-08-17 ユーザー実走フィードバック対応) ----
+  if (screen === 'menuStepIntro' && menu) {
+    const step = menu[menuIndex];
+    if (step) {
+      return (
+        <div style={page}>
+          <p style={{ textAlign: 'center', fontSize: 12, color: '#aaa' }}>メニュー {menuIndex + 1}/4</p>
+          <div style={{ ...card, marginTop: 40 }}>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{step.title}</div>
+            <p style={{ fontSize: 15, color: '#555', marginTop: 8 }}>{step.reason}</p>
+          </div>
+          <button style={bigBtn} onClick={() => launchMenuStep(step)}>
+            はじめる
+          </button>
+          <button style={subBtn} onClick={goHome}>
+            ← やめる
+          </button>
+        </div>
+      );
+    }
   }
 
   // ---- M-3 今日のメニュー完了 ----

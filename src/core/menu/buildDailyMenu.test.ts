@@ -9,7 +9,6 @@ afterEach(() => {
 });
 
 // range='low' のプリセットプール(level1.ts/level2.ts の RANGE_SCALE_MIDI.low と同値)。comfortRange=null で使う。
-const LOW_POOL = [48, 50, 52, 53, 55, 57]; // C3 D3 E3 F3 G3 A3
 // resolveCenterMidi(null, 'low') = snapToCMajor((48+57)/2=52.5) = 53(F3)
 const LOW_CENTER_MIDI = 53;
 
@@ -95,36 +94,28 @@ describe('buildDailyMenu', () => {
     expect(steps[2].kind).toBe('level2Focus');
   });
 
-  it('directionAccuracyが閾値以上なら重点に入らない(bは不発、dで埋まる)', () => {
+  it('directionAccuracyが閾値以上なら弱点としては入らない(bは不発。2枠目は多様性ルールでLevel 1)', () => {
+    // 2026-08-17 多様性ルール: 1枠目が単音集中なら2枠目は別種目(Level 1)を優先 —
+    // 「4つ全部が単音練習で構造が分からない」実走フィードバック対応
     const snapshots = [
       snap({ skillId: 'directionAccuracy', value: 0.9, exerciseId: 'l1-1', date: '2026-08-10T00:00:00.000Z' }),
     ];
     vi.spyOn(Math, 'random').mockReturnValue(0);
     const steps = buildDailyMenu({ comfortRange: null, range: 'low', snapshots });
     expect(steps[1].kind).toBe('level2Focus');
-    expect(steps[2].kind).toBe('level2Focus');
+    expect(steps[2].kind).toBe('level1Set');
   });
 
-  it('重複回避: 重点2つが両方Level2集中になる場合、2音目はaで使った音と別になる', () => {
+  it('多様性ルール(2026-08-17): 1枠目が最悪音の単音集中なら、2枠目は別種目(Level 1)になる', () => {
     const snapshots = [
       snap({ skillId: 'noteAbsCents:50', value: 80, exerciseId: 'e1', date: '2026-08-03T00:00:00.000Z' }),
       snap({ skillId: 'noteAbsCents:50', value: 100, exerciseId: 'e2', date: '2026-08-04T00:00:00.000Z' }), // 中央値90(唯一の候補=worst)
     ];
-    // d の抽選: candidatesは50を除いた[48,52,53,55,57](5件)。random=0で先頭48を選ぶはず
-    // (もし重複回避されていなければ pool全体[48,50,52,53,55,57] の index0=48 なので、この値では
-    // 見分けが付かないため、境界の0.99…でも50が選ばれないことを別途確認する)
     vi.spyOn(Math, 'random').mockReturnValue(0);
-    const steps1 = buildDailyMenu({ comfortRange: null, range: 'low', snapshots });
-    expect(steps1[1].spec?.targets[0].midiNote).toBe(50);
-    expect(steps1[2].kind).toBe('level2Focus');
-    expect(steps1[2].spec?.targets[0].midiNote).toBe(48);
-    expect(steps1[2].spec?.targets[0].midiNote).not.toBe(50);
-
-    vi.spyOn(Math, 'random').mockReturnValue(0.999999);
-    const steps2 = buildDailyMenu({ comfortRange: null, range: 'low', snapshots });
-    // candidates(5件)の末尾=57。poolそのまま(6件)なら末尾も57だが、区別のため50が選ばれていないことを確認
-    expect(steps2[2].spec?.targets[0].midiNote).not.toBe(50);
-    expect(LOW_POOL).toContain(steps2[2].spec?.targets[0].midiNote);
+    const steps = buildDailyMenu({ comfortRange: null, range: 'low', snapshots });
+    expect(steps[1].kind).toBe('level2Focus');
+    expect(steps[1].spec?.targets[0].midiNote).toBe(50);
+    expect(steps[2].kind).toBe('level1Set'); // 単音集中を2連続にしない
   });
 
   it('finisher最良音: count>=NOTE_MIN_COUNTの音のうちmedianAbsCents最小の音がfinisherになる', () => {

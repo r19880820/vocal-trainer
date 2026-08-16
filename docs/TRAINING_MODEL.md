@@ -154,8 +154,9 @@ Training Recommendation が生成する目標(オクターブ寄せ・reachTarge
       (reason: 「◯◯はのびしろの音。集中して合わせましょう」)
    b. directionAccuracy の直近週中央値 < MENU_WEAK_SKILL_THRESHOLD(0.6)→ Level 1セット
    c. intervalAccuracy の直近週中央値 < 0.6 → Level 3
-   d. 埋まらない分は Level 2ランダム(データ無し初心者は a=Level 2ランダム, b=Level 1)
-   同種は重複させない(重点2つが両方Level 2集中なら2音目は別の音)
+   d. 埋まらない分のフォールバック。**多様性ルール(2026-08-17 実走フィードバック)**:
+      1枠目が単音集中なら2枠目は別種目(Level 1セット)を優先 — 単音集中を2連続にしない。
+      (データ無し初心者は a=Level 2ランダム, b=Level 1)
 4. **しあげ(フィニッシャー)**: 最良の音(medianAbsCents最小、count≥2。無ければ楽な範囲の中央)の
    Level 2 — 成功体験で終わる(reason: 「とくいな音で気持ちよく締めましょう」)
 

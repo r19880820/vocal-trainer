@@ -168,8 +168,14 @@ function buildFocusSteps(
     steps.push(level3TrialStep());
   }
 
-  // d) 埋まらない分は Level 2ランダム(同種重複回避)
+  // d) 埋まらない分のフォールバック。**多様性ルール(2026-08-17 ユーザー実走フィードバック
+  // 「4つ全部が単音練習で構造が分からなかった」)**: 1枠目が単音集中(level2Focus)なら
+  // 2枠目は別種目(Level 1セット)を優先し、単音集中を2連続にしない
   while (steps.length < 2) {
+    if (steps.length === 1 && steps[0].kind === 'level2Focus') {
+      steps.push(level1SetStep());
+      continue;
+    }
     const midi = pickRandomUnusedMidi(comfortRange, range, usedMidis);
     steps.push(level2FocusStep(midi, comfortRange, range, RANDOM_NOTE_REASON));
   }
