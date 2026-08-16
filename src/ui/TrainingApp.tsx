@@ -9,10 +9,15 @@ import {
 } from '../core/exercise/engine';
 import { makeLevel2Spec, type VoiceRange } from '../core/exercise/level2';
 import { loadSettings, saveSettings } from '../data/settings';
+import { createProgressStore } from '../data/progressStore';
 import { Indicator } from './Indicator';
+import { ProgressScreen } from './ProgressScreen';
 import { liveStatusText, resultCopy } from './copy';
 
-type Screen = 'home' | 'micCheck' | 'range' | 'training' | 'result';
+type Screen = 'home' | 'micCheck' | 'range' | 'training' | 'result' | 'progress';
+
+// localStorage を包むだけの薄いラッパーなのでモジュールスコープで1つ生成すれば十分(ADR-004)
+const progressStore = createProgressStore();
 
 const page: React.CSSProperties = {
   padding: 20,
@@ -88,7 +93,8 @@ export function TrainingApp() {
   const [levelDb, setLevelDb] = useState(-Infinity);
   const [heard, setHeard] = useState(false);
   const [outcome, setOutcome] = useState<ExerciseOutcome | null>(null);
-  const [count, setCount] = useState(0);
+  // セッションを跨いで永続(ADR-004)。store.practiceCount() は validity=ok のみ数える
+  const [practiceCount, setPracticeCount] = useState(() => progressStore.practiceCount());
   const [showDetail, setShowDetail] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [micHint, setMicHint] = useState(false);
@@ -105,10 +111,11 @@ export function TrainingApp() {
         if (db > -45) setHeard(true);
       },
       onResult: (o) => {
+        progressStore.append(o.result); // validity=ok のみ保存される(ADR-004)
+        setPracticeCount(progressStore.practiceCount()); // storeから再取得(無効試行は増えない)
         setOutcome(o);
         setShowDetail(false);
         setScreen('result');
-        setCount((c) => c + 1);
       },
       onError: (m) => setErrorMsg(m), // 白画面防止(レビューM-9)。training画面のエラーカードで表示
     });
@@ -177,7 +184,9 @@ export function TrainingApp() {
       <div style={page}>
         <h1 style={{ fontSize: 22 }}>ボイトレ</h1>
         <p>こんにちは。今日も声を出してみましょう。</p>
-        {count > 0 && <p style={{ color: '#888', fontSize: 14 }}>今日はここまで {count} 回練習しました</p>}
+        {practiceCount > 0 && (
+          <p style={{ color: '#888', fontSize: 14 }}>これまで {practiceCount} 回練習しました</p>
+        )}
         <div style={card}>
           <div style={{ fontSize: 14, color: '#888' }}>今日の練習</div>
           <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>音の高さを合わせる練習</div>
@@ -185,6 +194,11 @@ export function TrainingApp() {
         <button style={bigBtn} onClick={onStart}>
           ▶ はじめる
         </button>
+        {practiceCount > 0 && (
+          <button style={subBtn} onClick={() => setScreen('progress')}>
+            せいちょうを見る
+          </button>
+        )}
         <p style={{ fontSize: 12, color: '#aaa', marginTop: 24 }}>
           イヤホンをつけると、お手本の音がじゃまをせず、より正確に練習できます(なくても練習できます)
         </p>
@@ -362,6 +376,11 @@ export function TrainingApp() {
         )}
       </div>
     );
+  }
+
+  // ---- 成長記録画面(Phase 7) ----
+  if (screen === 'progress') {
+    return <ProgressScreen store={progressStore} onBack={() => setScreen('home')} />;
   }
 
   return null;

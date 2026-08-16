@@ -21,7 +21,7 @@
 | Q1 | プロジェクト置き場 | `C:\dev\vocal-trainer` へ移設 | **CLOSED**(承認・移設済 2026-08-16) |
 | Q2 | 環境セットアップ実施者 | Web-first化でNodeのみ(導入済)。AI実施 | **CLOSED**(2026-08-16) |
 | Q3 | Android実機の有無 | 不要になった(iPhone+Webアプリ) | **CLOSED**(ADR-003で無効化) |
-| Q4 | 公開ホスティング先(iPhoneから常用するURL。GitHub Pages / Vercel等、GitHubリポジトリ作成可否含む) | MVP形になった時点で確認 | OPEN |
+| Q4 | 公開ホスティング先 | **GitHub Pages 採用・稼働中**: https://r19880820.github.io/vocal-trainer/(公開リポジトリ https://github.com/r19880820/vocal-trainer、mainへのpushでテスト全緑→自動デプロイ) | **CLOSED**(2026-08-16 ユーザーのアカウント提供により実施) |
 
 ## 未確定事項(技術・後続ADR予定)
 
