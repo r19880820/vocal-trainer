@@ -15,6 +15,7 @@ import {
   NOISE_MEASURE_MS,
   RANGE_MAX_STEPS,
   RANGE_STEP_CAPTURE_MS,
+  RANGE_STEP_MIN_VOICED_MS,
   RANGE_STEP_TONE_MS,
 } from '../core/constants';
 
@@ -97,6 +98,9 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
   const [phase, setPhase] = useState<Phase>('intro');
   const [stepNoteText, setStepNoteText] = useState('');
   const [stepSuccess, setStepSuccess] = useState(false);
+  // 「いつ歌えばいいか」の合図(2026-08-16 v2初回実測で全滅事故: お手本と一緒に歌って
+  // 捕捉窓が無音になるユーザーが必然 — 合図なしでは after-tone 方式は成立しない)
+  const [stepStage, setStepStage] = useState<'tone' | 'sing' | 'judging'>('tone');
   const [result, setResult] = useState<RangeStepsResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   // 開始直後に録音した静音PCM(ノイズフロア推定用)。各ステップの解析でこの先頭へ連結する。
@@ -116,15 +120,18 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
   const captureStep = async (targetMidi: number): Promise<StepEvaluation> => {
     const unmatched: StepEvaluation = { matched: false, comfortable: false, medianCents: null, voicedMs: 0 };
 
+    setStepStage('tone');
     await session.playTone(midiToHz(targetMidi), RANGE_STEP_TONE_MS);
     if (cancelledRef.current) return unmatched;
 
     await sleep(GUARD_AFTER_PLAYBACK_MS);
     if (cancelledRef.current) return unmatched;
 
+    setStepStage('sing');
     session.setRecording(true);
     await sleep(RANGE_STEP_CAPTURE_MS);
     session.setRecording(false);
+    setStepStage('judging');
     if (cancelledRef.current) return unmatched;
 
     const rec = session.getRecording();
@@ -166,6 +173,12 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
         setStepSuccess(false);
         evaluation = await captureStep(target);
         if (cancelledRef.current) break;
+        // 声が捕捉窓にほぼ入らなかった(タイミングのすれ違い)場合のみ、同じ音を1回だけやり直す。
+        // 声は出ていたが高さが合わなかった場合は本当の限界なのでやり直さない(2026-08-16 全滅事故対策)。
+        if (!evaluation.matched && evaluation.voicedMs < RANGE_STEP_MIN_VOICED_MS) {
+          evaluation = await captureStep(target);
+          if (cancelledRef.current) break;
+        }
       }
 
       results.push({ targetMidi: target, eval: evaluation });
@@ -225,11 +238,15 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
       if (cancelledRef.current) return;
 
       setPhase('measuringUp');
-      const upSteps = await runPass('up', startMidi, downSteps[0]?.eval);
+      // 開始音の再利用は matched だった場合のみ。失敗判定を使い回すと、下降1音目の
+      // すれ違いだけで上昇パスまで即終了してしまう(2026-08-16 全滅事故の一因)
+      const reuseFirst = downSteps[0]?.eval.matched ? downSteps[0].eval : undefined;
+      const upSteps = await runPass('up', startMidi, reuseFirst);
       if (cancelledRef.current) return;
 
-      // upSteps[0]はdownSteps[0]の再利用(同一開始音)なので集計時は二重に数えない。
-      const allSteps = [...downSteps, ...upSteps.slice(1)];
+      // reuseFirst を使った場合のみ upSteps[0] は downSteps[0] の複製なので除外する
+      // (再利用しなかった場合の upSteps[0] は開始音の再挑戦=本物の評価なので落とさない)。
+      const allSteps = reuseFirst ? [...downSteps, ...upSteps.slice(1)] : [...downSteps, ...upSteps];
       const aggregated = aggregateSteps(allSteps);
 
       if (!aggregated.ok) {
@@ -324,12 +341,24 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
       <div style={page}>
         <h2 style={{ fontSize: 20, textAlign: 'center' }}>お手本についてきてください</h2>
         <p style={{ textAlign: 'center', fontSize: 15 }}>
-          お手本が鳴ったら、同じ高さで「んー」。お手本は1音ずつ{directionText}いきます
+          お手本が<b>鳴りおわったら</b>、同じ高さで「んー」。お手本は1音ずつ{directionText}いきます
         </p>
         <div style={{ textAlign: 'center', fontSize: 48, fontWeight: 700, marginTop: 24, minHeight: 60 }}>
           {stepNoteText}
           {stepSuccess && <span style={{ color: '#2e7d32', fontSize: 28, marginLeft: 10 }}>✓</span>}
         </div>
+        <p
+          style={{
+            textAlign: 'center',
+            fontSize: 22,
+            fontWeight: 700,
+            minHeight: 32,
+            marginTop: 8,
+            color: stepStage === 'sing' ? '#2e7d32' : '#777',
+          }}
+        >
+          {stepStage === 'tone' ? '👂 聞いて…' : stepStage === 'sing' ? '🎤 いま!「んー」' : '…'}
+        </p>
         <p style={{ textAlign: 'center', fontSize: 13, color: '#888', marginTop: 16 }}>
           出しにくくなったら止まって大丈夫。そこまでが今の範囲です
         </p>
@@ -345,7 +374,9 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
     return (
       <div style={page}>
         <div style={card}>
-          <p>うまく測れませんでした。もう一度、お手本が鳴ったら同じ高さで「んー」と声を出してみてください</p>
+          <p>
+            うまく測れませんでした。お手本が<b>鳴りおわってから</b>、「🎤 いま!」の合図に合わせて「んー」と声を出してみてください
+          </p>
         </div>
         <button style={bigBtn} onClick={() => void runMeasurement()}>
           もう一度

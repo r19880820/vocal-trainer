@@ -163,7 +163,7 @@ cents = 1200 * log2(userHz / targetHz)   // features/scoring層で算出
 | OCTAVE_OFF_TOLERANCE_CENTS | 100 | 仮 |
 | GUARD_AFTER_PLAYBACK_MS | 250 | 仮 |
 | PHONATION_MAX_S / SILENCE_END_MS | 5 / 500 | 仮 |
-| RANGE_STEP_TONE_MS / RANGE_STEP_CAPTURE_MS | 700 / 1500 | 仮(音域チェックv2: お手本長/捕捉長) |
+| RANGE_STEP_TONE_MS / RANGE_STEP_CAPTURE_MS | 700 / 2000 | 仮(音域チェックv2: お手本長/捕捉長。1500→2000=全滅事故対応) |
 | RANGE_STEP_MATCH_CENTS / RANGE_STEP_COMFORT_CENTS | 150 / 75 | 仮(matched/comfortable判定 — TRAINING_MODEL.md 音域チェック) |
 | RANGE_STEP_MIN_VOICED_MS / RANGE_MAX_STEPS | 400 / 8 | 仮(ステップ有効最小有声時間 / 各方向の最大段数) |
 | RANGE_MIN_COMFORT_BINS | 5 | 仮(保存済み「楽な範囲」の最小幅ガード — v1異常値対策) |

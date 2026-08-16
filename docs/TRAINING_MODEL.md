@@ -77,7 +77,10 @@ Training Recommendation が生成する目標(オクターブ寄せ・reachTarge
 1. 説明 → 開始タップ → マイク準備+**静音500msを録音して保存**(ノイズ測定用。各ステップの
    解析時にこの静音PCMを先頭へ連結してから runPipelineOffline に通す)
 2. **下降パス**: 開始音(声域設定 低め=ソ3 / 高め=ド4)から**ハ長調スケールを1音ずつ下降**。各ステップ:
-   お手本再生(RANGE_STEP_TONE_MS=700ms)→ ガード250ms → 捕捉(RANGE_STEP_CAPTURE_MS=1500ms)→ 判定:
+   お手本再生(RANGE_STEP_TONE_MS=700ms)→ ガード250ms → 捕捉(RANGE_STEP_CAPTURE_MS=2000ms)→ 判定:
+   (画面は「👂聞いて…」→「🎤いま!」の合図を出す。声が捕捉窓に入らなかったステップは1回だけ
+   自動やり直し。開始音の評価を上昇パスへ再利用するのは matched だった場合のみ —
+   2026-08-16 初回実測の全滅事故対応)
    - **matched**: 有声 ≥ RANGE_STEP_MIN_VOICED_MS(400ms)かつ |目標比cents中央値| ≤ RANGE_STEP_MATCH_CENTS(150)
    - **comfortable**: matched かつ |cents中央値| ≤ RANGE_STEP_COMFORT_CENTS(75)
    - matched → 次の下のスケール音へ。unmatched または RANGE_MAX_STEPS(8)到達で下降終了

@@ -50,7 +50,7 @@ export const DURATION_MAX_MS = 4000; // 仮
 
 // --- 音域チェック(Range Check v2「音についていく方式」。TRAINING_MODEL.md「音域チェック」/ AUDIO_ANALYSIS.md §8) ---
 export const RANGE_STEP_TONE_MS = 700; // 仮(各ステップのお手本再生長)
-export const RANGE_STEP_CAPTURE_MS = 1500; // 仮(お手本再生後の捕捉時間)
+export const RANGE_STEP_CAPTURE_MS = 2000; // 仮(お手本再生後の捕捉時間。1500→2000: 反応時間の余裕 — 2026-08-16 v2初回実測で全滅事故)
 export const RANGE_STEP_MATCH_CENTS = 150; // 仮(matched判定: |目標比cents中央値|がこれ以下)
 export const RANGE_STEP_COMFORT_CENTS = 75; // 仮(comfortable判定: matchedのうち|cents中央値|がこれ以下)
 export const RANGE_STEP_MIN_VOICED_MS = 400; // 仮(matched判定に必要な最小有声時間)
