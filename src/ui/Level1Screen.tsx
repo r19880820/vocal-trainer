@@ -128,6 +128,7 @@ const card: React.CSSProperties = {
 export function Level1Screen({ session, onBack }: Props) {
   const [phase, setPhase] = useState<Phase>('intro');
   const [trialStage, setTrialStage] = useState<TrialStage>('tone');
+  const [toneCount, setToneCount] = useState<1 | 2>(1);
   const [trialNumber, setTrialNumber] = useState(1);
   const [feedback, setFeedback] = useState<TrialFeedback | null>(null);
   const [setResult, setSetResult] = useState<SetResult | null>(null);
@@ -146,13 +147,17 @@ export function Level1Screen({ session, onBack }: Props) {
 
   /** 1問分(A再生→間→B再生→ガード→捕捉→解析)を実行し方向判定結果を返す。 */
   const captureTrial = async (trial: Level1Trial): Promise<DirectionEvaluation> => {
+    // ♪1つ目/♪2つ目の表示: 同一音の出題(same)では2音が1回に聞こえるため、
+    // 目でも「2音鳴った」ことを確認できるようにする(2026-08-16 ユーザー報告対応)
     setTrialStage('tone');
+    setToneCount(1);
     await session.playTone(midiToHz(trial.aMidi), L1_TONE_MS);
     if (cancelledRef.current) return NO_EVAL;
 
     await sleep(L1_TONE_GAP_MS);
     if (cancelledRef.current) return NO_EVAL;
 
+    setToneCount(2);
     await session.playTone(midiToHz(trial.bMidi), L1_TONE_MS);
     if (cancelledRef.current) return NO_EVAL;
 
@@ -362,7 +367,7 @@ export function Level1Screen({ session, onBack }: Props) {
           }}
         >
           {trialStage === 'tone'
-            ? '👂 聞いて…'
+            ? `👂 聞いて… ♪${toneCount}つ目`
             : trialStage === 'sing'
               ? '🎤 いま!「んー、んー」'
               : trialStage === 'judging'

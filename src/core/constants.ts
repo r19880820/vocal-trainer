@@ -61,7 +61,7 @@ export const RANGE_MIN_COMFORT_BINS = 5; // 仮(保存済み「楽な範囲」�
 // --- Level 1「音の上下」(TRAINING_MODEL.md「Level 1: 音の上下」/ AUDIO_ANALYSIS.md §8) ---
 export const L1_TRIALS = 5; // 仮(1セットの問題数)
 export const L1_TONE_MS = 600; // 仮(A/B各音の再生長)
-export const L1_TONE_GAP_MS = 250; // 仮(A→B間の無音)
+export const L1_TONE_GAP_MS = 400; // 仮(A→B間の無音。250→400: 同一音の出題(same)で2音が1回に聞こえる — 2026-08-16 ユーザー報告対応)
 export const L1_CAPTURE_MS = 5000; // 仮(捕捉時間。4000→5000: 反応と2音分の余裕 — 2026-08-16 実地で全問測定不能事故)
 export const L1_SEGMENT_MIN_VOICED_MS = 300; // 仮(有効セグメントの最小有声時間)
 export const L1_SEGMENT_GAP_MS = 150; // 仮(セグメント分割の無音ギャップ。250→150: 素早い歌い直しでも区切れるように — 同事故対応)
