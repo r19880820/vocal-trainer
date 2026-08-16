@@ -274,8 +274,8 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
       <div style={page}>
         <p style={{ textAlign: 'center', fontSize: 18, marginTop: 24 }}>
           {phase === 'measuringDown'
-            ? '楽な高さから、少しずつ低く「んー」とスライドしてください'
-            : '楽な高さから、少しずつ高く「んー」とスライドしてください'}
+            ? '楽な高さから、6秒かけてできるだけゆっくり、少しずつ低く「んー」とスライドしてください'
+            : '楽な高さから、6秒かけてできるだけゆっくり、少しずつ高く「んー」とスライドしてください'}
         </p>
         <div style={{ textAlign: 'center', fontSize: 48, fontWeight: 700, marginTop: 24 }}>{seconds}</div>
         <p style={{ textAlign: 'center', fontSize: 22, color: '#2e7d32', marginTop: 16, minHeight: 30 }}>

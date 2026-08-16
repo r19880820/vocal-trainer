@@ -10,6 +10,7 @@ import {
 import { makeLevel2Spec, type VoiceRange } from '../core/exercise/level2';
 import type { ExerciseSpec } from '../core/types';
 import { midiToSolfege } from '../core/pitch/scale';
+import { RANGE_MIN_COMFORT_BINS } from '../core/constants';
 import { loadSettings, saveSettings, type Settings } from '../data/settings';
 import { createProgressStore } from '../data/progressStore';
 import { Indicator } from './Indicator';
@@ -22,11 +23,17 @@ type Screen = 'home' | 'micCheck' | 'range' | 'training' | 'result' | 'progress'
 // localStorage を包むだけの薄いラッパーなのでモジュールスコープで1つ生成すれば十分(ADR-004)
 const progressStore = createProgressStore();
 
-/** 音域チェック済みか(型ガード。trueの分岐ではrangeComfortLow/HighMidiがnumberへ narrow される)。 */
+/** 音域チェック済みか(型ガード。trueの分岐ではrangeComfortLow/HighMidiがnumberへ narrow される)。
+ * 幅が RANGE_MIN_COMFORT_BINS 未満の保存値は誤測定(2026-08-16事故: 旧解析が幅3半音を返した)
+ * とみなして未測定扱いにする — 修正前に保存されたデータからの防御。 */
 function hasMeasuredRange(
   s: Settings
 ): s is Settings & { rangeComfortLowMidi: number; rangeComfortHighMidi: number } {
-  return s.rangeComfortLowMidi !== null && s.rangeComfortHighMidi !== null;
+  return (
+    s.rangeComfortLowMidi !== null &&
+    s.rangeComfortHighMidi !== null &&
+    s.rangeComfortHighMidi - s.rangeComfortLowMidi + 1 >= RANGE_MIN_COMFORT_BINS
+  );
 }
 
 /** 実数MIDI→標準MIDIオクターブ番号(60=C4)。RC-3同様の表示専用ヘルパー(UX_TRAINING §5b)。 */

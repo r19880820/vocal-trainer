@@ -155,8 +155,52 @@ describe('analyzeVocalRange', () => {
     expect(result.fullLowMidi).toBeNull();
   });
 
+  // --- 2026-08-16 誤測定事故(シ2〜ド#3・幅3半音)の回帰テスト ---
+
+  it('【事故回帰】端に滞在が偏り中間が未達でも、狭い端の小塊を「楽な範囲」として返さない', () => {
+    // 下端(47-49)にだけ長く滞在(品質は並)。中間〜上(52-60)は速く通過して有声時間不足=未達。
+    const shortCount = Math.floor(RANGE_BIN_MIN_MS / HOP_MS / 2); // 資格未満
+    const { raw, processed } = buildSamples([
+      { midi: 47, confidence: 0.8, jitterCents: 8 },
+      { midi: 48, confidence: 0.8, jitterCents: 8 },
+      { midi: 49, confidence: 0.8, jitterCents: 8 },
+      ...[52, 54, 56, 58, 60].map((midi) => ({ midi, confidence: 0.9, jitterCents: 2, count: shortCount })),
+    ]);
+    const result = analyzeVocalRange(raw, processed);
+    // 幅3半音の「楽な範囲」を自信ありげに返すのではなく、測定失敗として再測定を促す
+    expect(result.ok).toBe(false);
+    expect(result.comfortLowMidi).toBeNull();
+  });
+
+  it('【橋渡し】速く通過して未達だったビンが挟まっても、両側の良好ビンは連続扱いになる', () => {
+    // 達成ビン: 50,52,55,57,59(良好)。51,53,54,56,58 は未達(サンプル自体なし)。
+    // 52→55 はギャップ2半音(53,54欠落)= RANGE_BIN_GAP_BRIDGE(2)以内なので橋渡しされる。
+    const { raw, processed } = buildSamples(
+      [50, 52, 55, 57, 59].map((midi) => ({ midi, confidence: 0.9, jitterCents: 3 }))
+    );
+    const result = analyzeVocalRange(raw, processed);
+    expect(result.ok).toBe(true);
+    expect(result.comfortLowMidi).toBe(50);
+    expect(result.comfortHighMidi).toBe(59);
+  });
+
+  it('【橋渡しの限界】品質不合格の達成ビン(=実際に声が乱れた証拠)を跨ぐ橋渡しはしない', () => {
+    // 55-59は良好、60は達成したが品質不合格、61-65は良好。60を跨いで連結してはいけない。
+    const { raw, processed } = buildSamples([
+      ...[55, 56, 57, 58, 59].map((midi) => ({ midi, confidence: 0.9, jitterCents: 3 })),
+      { midi: 60, confidence: 0.6, jitterCents: 30 },
+      ...[61, 62, 63, 64, 65].map((midi) => ({ midi, confidence: 0.9, jitterCents: 3 })),
+    ]);
+    const result = analyzeVocalRange(raw, processed);
+    expect(result.ok).toBe(true);
+    // どちらか片側5ビンの区間になる(60を含む11ビン連結にはならない)
+    expect(result.comfortHighMidi! - result.comfortLowMidi! + 1).toBe(5);
+  });
+
   it('voicedでないサンプル(silent等)はビン集計に含めない', () => {
     const { raw, processed } = buildSamples([
+      { midi: 58, confidence: 0.9, jitterCents: 0 },
+      { midi: 59, confidence: 0.9, jitterCents: 0 },
       { midi: 60, confidence: 0.9, jitterCents: 0 },
       { midi: 61, confidence: 0.9, jitterCents: 0 },
       { midi: 62, confidence: 0.9, jitterCents: 0 },

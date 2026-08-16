@@ -50,10 +50,12 @@ export const DURATION_MAX_MS = 4000; // 仮
 
 // --- 音域チェック(Range Check。TRAINING_MODEL.md「音域チェック」/ AUDIO_ANALYSIS.md §8) ---
 export const RANGE_PASS_SECONDS = 6; // 仮(下降/上昇 各パスの長さ)
-export const RANGE_BIN_MIN_MS = 250; // 仮(半音ビンが「出せた」と数えられる最小有声時間)
+export const RANGE_BIN_MIN_MS = 150; // 仮(半音ビンが「出せた」と数えられる最小有声時間。250はスライド通過速度に厳しすぎた — 2026-08-16誤測定事故)
 export const RANGE_MIN_BINS = 3; // 仮(これ未満しか出せなかったら測定失敗扱い)
 export const RANGE_CONF_DROP = 0.08; // 仮(基準confidenceからこれ以上落ちたら「余裕なし」)
 export const RANGE_JITTER_FACTOR = 1.8; // 仮(基準ジッターのこの倍数を超えたら「余裕なし」)
+export const RANGE_BIN_GAP_BRIDGE = 2; // 仮(素早く通過して未達だったビンをこの半音数まで橋渡しして連続扱い — 2026-08-16誤測定事故対策)
+export const RANGE_MIN_COMFORT_BINS = 5; // 仮(「楽な範囲」の幅がこれ未満なら測定失敗として正直に返す — 幅3半音の誤結果を出さない)
 
 // --- UX display (UX_TRAINING.md §4) ---
 export const DISPLAY_RANGE_CENTS = 200; // 仮
