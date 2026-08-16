@@ -135,13 +135,15 @@ describe('recommend — octaveOff', () => {
 });
 
 describe('recommend — reachTarget', () => {
-  it('moves the target to the semitone nearest the voiced median pitch (within ±5 semitones)', () => {
-    const samples = [sample(63), sample(63), sample(63, 'silent')]; // median voiced midi = 63 (+3 semitones)
+  it('moves the target toward the voiced median pitch, snapped to a C-major scale note', () => {
+    // 2026-08-16 ユーザーフィードバック反映: 目標はハ長調スケール音のみ(scale.ts)。
+    // median=63(D#4、黒鍵)→ 最近傍スケール音(同距離タイは低い方)= 62(D4)
+    const samples = [sample(63), sample(63), sample(63, 'silent')];
     const result = makeResult({ samples });
     const diagnosis = makeDiagnosis({ primaryWeakness: null, rationale: 'reachTarget' });
     const { spec, reasonKey } = recommend(diagnosis, result);
     expect(reasonKey).toBe('reachTarget');
-    expect(spec.targets[0].midiNote).toBe(63);
+    expect(spec.targets[0].midiNote).toBe(62);
     expectRunnable(spec);
   });
 

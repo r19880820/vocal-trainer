@@ -11,6 +11,7 @@ import {
   TARGET_MIDI_MIN,
   TOWARD_USER_MIDI_MIN,
 } from '../constants';
+import { nextCMajorAbove, snapToCMajor } from '../pitch/scale';
 
 // レビューC-5: UIの src/ui/copy.ts が既に 'allGood' ケースを持つため、型を追加してコンパイルを通す。
 export type RecommendationKey =
@@ -24,7 +25,6 @@ export type RecommendationKey =
 
 const REACH_TARGET_MAX_SHIFT_SEMITONES = 5;
 const REACH_TARGET_FALLBACK_SHIFT_SEMITONES = -3;
-const ALLGOOD_SHIFT_SEMITONES = 2;
 const STABILITY_DURATION_FACTOR = 1.5;
 const ATTACK_DURATION_FACTOR = 0.6;
 // ロングトーン変種(pitchStability weak)の phonationMaxMs クランプ範囲。
@@ -94,13 +94,16 @@ function cloneSpec(spec: ExerciseSpec): ExerciseSpec {
 function octaveShiftSpec(spec: ExerciseSpec, octaveOff: -1 | 0 | 1): ExerciseSpec {
   const shiftSemitones = octaveOff === 1 ? 12 : octaveOff === -1 ? -12 : 0;
   const target = spec.targets[0];
-  return withFirstTarget(spec, { midiNote: clampMidiTowardUser(target.midiNote + shiftSemitones) });
+  // 目標はスケール音のみ(scale.ts)。±12は元がスケール音なら不変だが、防御的にスナップ
+  return withFirstTarget(spec, {
+    midiNote: clampMidiTowardUser(snapToCMajor(target.midiNote + shiftSemitones)),
+  });
 }
 
-/** 弱点なし(allGood): 目標を+2半音(クランプ内)して同型specで再挑戦(レビューC-5)。 */
+/** 弱点なし(allGood):「つぎの音」= 1つ上のスケール音(ドならレ)へ。クランプ内。 */
 function allGoodSpec(spec: ExerciseSpec): ExerciseSpec {
   const target = spec.targets[0];
-  return withFirstTarget(spec, { midiNote: clampMidi(target.midiNote + ALLGOOD_SHIFT_SEMITONES) });
+  return withFirstTarget(spec, { midiNote: clampMidi(nextCMajorAbove(target.midiNote)) });
 }
 
 /** durationMs を factor 倍する(DURATION_MIN/MAX_MSにクランプ。レビューM-4)。phonationMaxMsは元specを引き継ぐ。 */
@@ -153,7 +156,8 @@ function reachTargetSpec(result: ExerciseResult): ExerciseSpec {
     newMidi = originalMidi + REACH_TARGET_FALLBACK_SHIFT_SEMITONES;
   }
 
-  return withFirstTarget(spec, { midiNote: clampMidiTowardUser(newMidi) });
+  // ユーザーの声に寄せた上で、目標としてはスケール音へスナップ(±1半音の丸めは許容範囲)
+  return withFirstTarget(spec, { midiNote: clampMidiTowardUser(snapToCMajor(newMidi)) });
 }
 
 /**

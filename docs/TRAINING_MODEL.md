@@ -59,6 +59,11 @@ Progress Tracking は Exercise 単位ではなく**この Skill 単位**で履�
 ユーザーの声域に合わせる(男声想定 C3〜C4、女声想定 A3〜A4 あたりから開始)。
 MVPでは初回起動時に「低め/高め」選択で簡易対応(設定から変更可)。将来は Vocal Range 測定で自動化。
 
+**目標音はハ長調スケール(ドレミファソラシ)上の音のみ**(2026-08-16 ユーザーフィードバック:
+半音階(黒鍵)の目標は初心者の耳に不自然)。低め: ド3〜ラ3の6音 / 高め: ラ3〜ミ4の5音。
+Training Recommendation が生成する目標(オクターブ寄せ・reachTarget・allGood)も
+必ずスケール音へスナップする(core/pitch/scale.ts が正本)。
+
 ## Scoring → Weakness Detection(ルールベース)
 
 ```text

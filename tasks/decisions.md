@@ -14,6 +14,8 @@
 | 2026-08-16 | core は純 Dart・AI Coach は境界のみ先行定義 | [ARCHITECTURE.md](../docs/ARCHITECTURE.md) |
 | 2026-08-16 | MVP = Level 2「1音合わせ」縦切り | [TRAINING_MODEL.md](../docs/TRAINING_MODEL.md) |
 
+| 2026-08-16 | **目標音をハ長調スケール音のみに限定**(ユーザーフィードバック「ドレミファソじゃない気がする」→ 半音階混入は設計ミスと判断)。提案生成もスケールへスナップ | [TRAINING_MODEL.md](../docs/TRAINING_MODEL.md) 目標音の範囲 / core/pitch/scale.ts |
+
 ## 未確定事項(ユーザー判断待ち)
 
 | # | 論点 | 推奨 | 状態 |

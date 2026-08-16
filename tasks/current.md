@@ -25,11 +25,14 @@
 | T25 | **iPhone較正セッション** | ユーザー+Fable | ✅ 完了 — ①セルフテストPASS(439.5Hz) ②遅延84ms ③4録音解析→**GATE_FLOOR_DBFS -55→-62に較正**(小声のvoiced率15.6%→44.9%改善)。±50cent/YIN閾値0.15/σ正規化100は妥当確認。解析ハーネス=src/calibration.analysis.test.ts(recordings/がある環境のみ実行)。261テスト全PASS |
 | T26 | **test-retest受入(MVPゲート最後の1つ)** | ユーザー+Fable | ✅ **合格** — 3回連続で同一診断(ユーザー報告「全部つぎの高さ」= 文言の正確な内訳は未確認、「音の高さ」か「つぎの音(allGood)」のいずれか。一致自体は確定)。**→ Playable MVP 完成(2026-08-16)** |
 
-## 次の分岐(ユーザーと相談)
+| T27 | 公開(Q4): 初回commit+GitHub公開リポジトリ+Pages自動デプロイ(テスト全緑ゲート付き) | Fable | ✅ 完了(2026-08-16)— **https://r19880820.github.io/vocal-trainer/** 稼働中 |
+| T28 | **Phase 7 成長記録**: ADR-004(localStorage)+progressStore+週次集計+「せいちょう」画面+ホーム配線 | Sonnet(実装)/Fable(レビュー・デプロイ) | ✅ 完了・本番反映済(290テスト全PASS、commit d127ab4) |
 
-1. **Q4 ホスティング**: 現状は自宅Wi-Fi+PC起動中のみ使える。GitHub Pages / Vercel 等でURL化すれば外出先でも毎日使える(推奨: 先にやる)
-2. **次フェーズ**: Phase 7(成長記録 — 毎日使うなら履歴が貯まり始める今が最適)vs Phase 6(Level 1/3/4 追加)。Fable推奨は Phase 7 先行
-3. **初回 git commit 未実施**: リポジトリは作成済みだがコミットが1つもない(全ファイル未追跡=バックアップなし)。MVP完成のこのタイミングでの初回コミットを推奨(ユーザー承認待ち)
+## 次の候補(Phase 6 以降 — 着手前にユーザー確認不要、推奨順)
+
+1. **Phase 6**: Level 1(音の上下)→ Level 3(2音)→ Level 4(メロディ)。interval/direction 算出の実装解禁
+2. PWA化(ホーム画面アイコン・オフラインキャッシュ)/ 履歴エクスポート(バックログ)
+3. 技術負債: rationale文字列契約の型化 / attackAccuracy飽和(実運用データが貯まったら再評価)
 
 ## 技術負債・実機較正の観測項目(Opus再確認 N-3〜N-5 + 見送り分)
 
