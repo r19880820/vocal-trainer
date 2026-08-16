@@ -33,6 +33,7 @@ type Phase =
   | 'micDenied'
   | 'preSilence' // 静音500ms(ノイズ測定・録音して保持)
   | 'measuringDown' // RC-2 下降パス
+  | 'betweenPasses' // 下降→上昇の休憩(2026-08-16 ユーザー指摘: 最低音直後に上昇が始まるのがきつい)
   | 'measuringUp' // RC-2 上昇パス
   | 'result' // RC-3 成功
   | 'failed'; // RC-3 失敗
@@ -105,6 +106,10 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   // 上限8音に当たって打ち切られた(=まだ余裕があった)方向。過小評価の明示用(2026-08-16 ユーザー指摘)
   const [openEnds, setOpenEnds] = useState<{ low: boolean; high: boolean }>({ low: false, high: false });
+  // 休憩画面に出す「下はここまで確認できました」の音名(無ければ空)
+  const [downReachedText, setDownReachedText] = useState('');
+  // 休憩画面の[つづける]待ち(ユーザーのペースで上昇パスを始める)
+  const continueResolverRef = useRef<(() => void) | null>(null);
   // 開始直後に録音した静音PCM(ノイズフロア推定用)。各ステップの解析でこの先頭へ連結する。
   const silenceRef = useRef<{ sampleRate: number; pcm: Float32Array } | null>(null);
   // アンマウント後にawait継続分がstateを書き換えないためのガード(session.stop()は親の責務なので
@@ -114,6 +119,8 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
   useEffect(
     () => () => {
       cancelledRef.current = true;
+      // 休憩の[つづける]待ちで停止中の測定フローを解放する(cancelledRefで直後に打ち切られる)
+      continueResolverRef.current?.();
     },
     []
   );
@@ -245,6 +252,17 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
       const downSteps = await runPass('down', startMidi);
       if (cancelledRef.current) return;
 
+      // 下降→上昇の間に休憩を入れる(最低音の直後に上昇を始めるのは声帯的に一番きつい —
+      // 2026-08-16 ユーザー指摘)。[つづける]タップまで待つ = ユーザーのペースで再開
+      const matchedDown = downSteps.filter((s) => s.eval.matched).map((s) => s.targetMidi);
+      setDownReachedText(matchedDown.length > 0 ? noteLabel(Math.min(...matchedDown)) : '');
+      setPhase('betweenPasses');
+      await new Promise<void>((resolve) => {
+        continueResolverRef.current = resolve;
+      });
+      continueResolverRef.current = null;
+      if (cancelledRef.current) return;
+
       setPhase('measuringUp');
       // 開始音の再利用は matched だった場合のみ。失敗判定を使い回すと、下降1音目の
       // すれ違いだけで上昇パスまで即終了してしまう(2026-08-16 全滅事故の一因)
@@ -342,6 +360,26 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
       <div style={page}>
         <p style={{ textAlign: 'center', fontSize: 18, marginTop: 80 }}>そのまま静かに…</p>
         <button style={{ ...subBtn, marginTop: 60 }} onClick={onBack}>
+          ← やめる
+        </button>
+      </div>
+    );
+  }
+
+  // ---- 下降→上昇の休憩 ----
+  if (phase === 'betweenPasses') {
+    return (
+      <div style={page}>
+        <div style={{ ...card, marginTop: 60 }}>
+          <p style={{ fontSize: 17, fontWeight: 700 }}>
+            {downReachedText ? `下は ${downReachedText} まで確認できました` : '下の確認がおわりました'}
+          </p>
+          <p style={{ fontSize: 15 }}>こんどは上に向かいます。ひと息ついて、準備ができたらどうぞ</p>
+        </div>
+        <button style={bigBtn} onClick={() => continueResolverRef.current?.()}>
+          つづける
+        </button>
+        <button style={subBtn} onClick={onBack}>
           ← やめる
         </button>
       </div>
