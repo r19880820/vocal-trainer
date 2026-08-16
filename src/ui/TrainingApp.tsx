@@ -8,11 +8,13 @@ import {
   type LiveDisplay,
 } from '../core/exercise/engine';
 import { makeLevel2Spec, type VoiceRange } from '../core/exercise/level2';
+import type { ExerciseSpec } from '../core/types';
+import { midiToSolfege } from '../core/pitch/scale';
 import { loadSettings, saveSettings } from '../data/settings';
 import { createProgressStore } from '../data/progressStore';
 import { Indicator } from './Indicator';
 import { ProgressScreen } from './ProgressScreen';
-import { liveStatusText, resultCopy } from './copy';
+import { liveStatusText, resultCopy, signedMedianCentsVsTarget } from './copy';
 
 type Screen = 'home' | 'micCheck' | 'range' | 'training' | 'result' | 'progress';
 
@@ -98,6 +100,8 @@ export function TrainingApp() {
   const [showDetail, setShowDetail] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [micHint, setMicHint] = useState(false);
+  // いま練習中の目標(SC-4の音名表示用。「何が難しいのか分からない」対策 — UX §2 SC-4)
+  const [currentSpec, setCurrentSpec] = useState<ExerciseSpec | null>(null);
 
   if (engineRef.current === null) {
     engineRef.current = new ExerciseEngine(new AudioSession(), {
@@ -137,7 +141,9 @@ export function TrainingApp() {
   const startTraining = (range: VoiceRange) => {
     setErrorMsg(null);
     setScreen('training');
-    void engine.beginExercise(makeLevel2Spec(range));
+    const spec = makeLevel2Spec(range);
+    setCurrentSpec(spec);
+    void engine.beginExercise(spec);
   };
 
   const onStart = () => {
@@ -310,7 +316,12 @@ export function TrainingApp() {
           engineState === 'phonating' ||
           engineState === 'scoring') && (
           <>
-            <p style={{ textAlign: 'center', fontSize: 18, minHeight: 28, marginTop: 40 }}>
+            {currentSpec && (
+              <p style={{ textAlign: 'center', fontSize: 14, color: '#888', marginTop: 24 }}>
+                お手本の音: {midiToSolfege(currentSpec.targets[0].midiNote)}
+              </p>
+            )}
+            <p style={{ textAlign: 'center', fontSize: 18, minHeight: 28, marginTop: 16 }}>
               {engineState === 'scoring' ? '判定中…' : statusText}
             </p>
             <Indicator cents={engineState === 'phonating' ? (live?.cents ?? null) : null} />
@@ -352,6 +363,7 @@ export function TrainingApp() {
           style={{ ...bigBtn, background: '#1565c0' }}
           onClick={() => {
             setScreen('training');
+            setCurrentSpec(outcome.next.spec);
             void engine.beginExercise(outcome.next.spec);
           }}
         >
@@ -365,6 +377,19 @@ export function TrainingApp() {
         </p>
         {showDetail && (
           <div style={{ ...card, fontSize: 13, lineHeight: 2 }}>
+            お手本の音: {midiToSolfege(outcome.result.spec.targets[0].midiNote)}
+            <br />
+            {(() => {
+              const bias = signedMedianCentsVsTarget(outcome.result);
+              if (bias === null) return null;
+              const label = bias <= -30 ? 'お手本より低め' : bias >= 30 ? 'お手本より高め' : 'ちょうど';
+              return (
+                <>
+                  傾向: {label}({Math.round(bias)})
+                  <br />
+                </>
+              );
+            })()}
             高さの一致: {(m.pitchAccuracy * 100).toFixed(0)}%
             <br />
             ズレの中央値: {m.medianAbsCents.toFixed(0)}(小さいほど合っています)

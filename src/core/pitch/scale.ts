@@ -23,3 +23,26 @@ export function nextCMajorAbove(midi: number): number {
   while (!isCMajor(m)) m += 1;
   return m;
 }
+
+const SOLFEGE: Record<number, string> = {
+  0: 'ド',
+  1: 'ド#',
+  2: 'レ',
+  3: 'レ#',
+  4: 'ミ',
+  5: 'ファ',
+  6: 'ファ#',
+  7: 'ソ',
+  8: 'ソ#',
+  9: 'ラ',
+  10: 'ラ#',
+  11: 'シ',
+};
+
+/**
+ * ドレミ表記の音名(初心者向けUI用。オクターブは意図的に省略 —
+ * 同一プール内に同名音は無く、日常語としての「ソ」で十分伝わるため)
+ */
+export function midiToSolfege(midi: number): string {
+  return SOLFEGE[((Math.round(midi) % 12) + 12) % 12];
+}

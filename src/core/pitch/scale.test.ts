@@ -23,6 +23,18 @@ describe('snapToCMajor', () => {
   });
 });
 
+describe('midiToSolfege', () => {
+  it('maps scale notes to solfege names', async () => {
+    const { midiToSolfege } = await import('./scale');
+    expect(midiToSolfege(48)).toBe('ド');
+    expect(midiToSolfege(55)).toBe('ソ');
+    expect(midiToSolfege(57)).toBe('ラ');
+    expect(midiToSolfege(60)).toBe('ド');
+    expect(midiToSolfege(64)).toBe('ミ');
+    expect(midiToSolfege(54)).toBe('ファ#');
+  });
+});
+
 describe('nextCMajorAbove', () => {
   it('returns the next scale degree above', () => {
     expect(nextCMajorAbove(48)).toBe(50); // ド → レ
