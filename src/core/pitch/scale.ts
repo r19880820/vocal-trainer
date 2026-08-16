@@ -24,6 +24,13 @@ export function nextCMajorAbove(midi: number): number {
   return m;
 }
 
+/** midi より下で最も近いハ長調スケール音(音域チェックv2の下降パス用) */
+export function nextCMajorBelow(midi: number): number {
+  let m = Math.round(midi) - 1;
+  while (!isCMajor(m)) m -= 1;
+  return m;
+}
+
 const SOLFEGE: Record<number, string> = {
   0: 'ド',
   1: 'ド#',

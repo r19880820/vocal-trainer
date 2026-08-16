@@ -1,17 +1,22 @@
-// 音域チェック(Range Check)画面。フロー・文言の正本は docs/UX_TRAINING.md §5b、
-// 解析仕様は docs/TRAINING_MODEL.md「音域チェック(Range Check)」。
+// 音域チェック(Range Check)v2「音についていく方式」画面。フロー・文言の正本は
+// docs/UX_TRAINING.md §5b、解析仕様は docs/TRAINING_MODEL.md「音域チェック(Range Check)」。
 // ExerciseEngineとは独立(TRAINING_MODEL.md)。session は親(TrainingApp)から受け取り、
 // このコンポーネント自身はマイクの生成/破棄(session.start以外)を行わない
 // (session.stop()の呼び出しは親の責務 — ライフサイクル管理を一箇所に集約する)。
 import { useEffect, useRef, useState } from 'react';
 import { AudioSession } from '../platform/audioSession';
 import { runPipelineOffline } from '../core/offline';
-import { analyzeVocalRange, type VocalRangeResult } from '../core/range/analyzeRange';
-import { hzToMidi } from '../core/pitch/conversions';
-import { midiToSolfege } from '../core/pitch/scale';
+import { aggregateSteps, evaluateStep, type RangeStepsResult, type StepEvaluation } from '../core/range/steps';
+import { midiToHz } from '../core/pitch/conversions';
+import { midiToSolfege, nextCMajorAbove, nextCMajorBelow } from '../core/pitch/scale';
 import { loadSettings, saveSettings, type Settings } from '../data/settings';
-import { NOISE_MEASURE_MS, RANGE_PASS_SECONDS } from '../core/constants';
-import type { RawPitchSample } from '../core/types';
+import {
+  GUARD_AFTER_PLAYBACK_MS,
+  NOISE_MEASURE_MS,
+  RANGE_MAX_STEPS,
+  RANGE_STEP_CAPTURE_MS,
+  RANGE_STEP_TONE_MS,
+} from '../core/constants';
 
 interface Props {
   session: AudioSession;
@@ -25,12 +30,19 @@ type Phase =
   | 'intro' // RC-1
   | 'preparing' // マイク起動中(過渡)
   | 'micDenied'
-  | 'preSilence' // 静音500ms(ノイズ測定)
+  | 'preSilence' // 静音500ms(ノイズ測定・録音して保持)
   | 'measuringDown' // RC-2 下降パス
   | 'measuringUp' // RC-2 上昇パス
-  | 'analyzing' // 判定中(過渡)
   | 'result' // RC-3 成功
   | 'failed'; // RC-3 失敗
+
+/** 開始音(声域設定 低め=ソ3 / 高め=ド4。TRAINING_MODEL.md「音域チェック」)。 */
+const START_MIDI_LOW = 55; // ソ3
+const START_MIDI_HIGH = 60; // ド4
+
+/** ✓表示の最小視認時間(仕様に明記なし — 実装判断。core/constants.tsのRANGE_*ブロックは
+ * 「追加してよい定数」が仕様書で列挙済みのため、UI専用のこの値はここにローカル定義する)。 */
+const STEP_SUCCESS_FLASH_MS = 300;
 
 const page: React.CSSProperties = {
   padding: 20,
@@ -69,7 +81,7 @@ function octaveOf(midi: number): number {
   return Math.floor(Math.round(midi) / 12) - 1;
 }
 
-/** ドレミ表記+オクターブ番号(RC-2「いま: ソ3」/ RC-3結果表示専用。他画面はオクターブ非表示のmidiToSolfegeをそのまま使う)。 */
+/** ドレミ表記+オクターブ番号(RC-2「ソ3」/ RC-3結果表示専用。他画面はオクターブ非表示のmidiToSolfegeをそのまま使う)。 */
 function noteLabel(midi: number | null): string {
   if (midi === null) return '';
   return `${midiToSolfege(midi)}${octaveOf(midi)}`;
@@ -79,29 +91,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** durationMs間、100ms刻みでonTick(残りms)を呼びながら待つ(RC-2のカウントダウン表示用)。 */
-function countdown(durationMs: number, onTick: (remainingMs: number) => void): Promise<void> {
-  return new Promise((resolve) => {
-    const startedAt = performance.now();
-    onTick(durationMs);
-    const id = window.setInterval(() => {
-      const remaining = Math.max(0, durationMs - (performance.now() - startedAt));
-      onTick(remaining);
-      if (remaining <= 0) {
-        window.clearInterval(id);
-        resolve();
-      }
-    }, 100);
-  });
-}
+type StepRecord = { targetMidi: number; eval: StepEvaluation };
 
 export function RangeCheckScreen({ session, onDone, onBack }: Props) {
   const [phase, setPhase] = useState<Phase>('intro');
-  const [remainingMs, setRemainingMs] = useState(RANGE_PASS_SECONDS * 1000);
-  const [noteText, setNoteText] = useState('');
-  const [result, setResult] = useState<VocalRangeResult | null>(null);
+  const [stepNoteText, setStepNoteText] = useState('');
+  const [stepSuccess, setStepSuccess] = useState(false);
+  const [result, setResult] = useState<RangeStepsResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const latestRawRef = useRef<RawPitchSample | null>(null);
+  // 開始直後に録音した静音PCM(ノイズフロア推定用)。各ステップの解析でこの先頭へ連結する。
+  const silenceRef = useRef<{ sampleRate: number; pcm: Float32Array } | null>(null);
   // アンマウント後にawait継続分がstateを書き換えないためのガード(session.stop()は親の責務なので
   // ここではタイマーの後始末のみ管理する)。
   const cancelledRef = useRef(false);
@@ -113,18 +112,75 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
     []
   );
 
-  // 「いま: ソ3」表示(RC-2)。onPitchは高頻度(約86Hz)なのでrefで受け、100msごとにstateへ反映する
-  // (DebugPageの実機読み戻し表示と同じ間引き方式)。
-  useEffect(() => {
-    if (phase !== 'measuringDown' && phase !== 'measuringUp') return;
-    const id = window.setInterval(() => {
-      const s = latestRawRef.current;
-      if (s && s.frequencyHz > 0 && s.belowThreshold) {
-        setNoteText(noteLabel(hzToMidi(s.frequencyHz)));
+  /** 1ステップ分(お手本再生→ガード→捕捉→解析)を実行し判定結果を返す。 */
+  const captureStep = async (targetMidi: number): Promise<StepEvaluation> => {
+    const unmatched: StepEvaluation = { matched: false, comfortable: false, medianCents: null, voicedMs: 0 };
+
+    await session.playTone(midiToHz(targetMidi), RANGE_STEP_TONE_MS);
+    if (cancelledRef.current) return unmatched;
+
+    await sleep(GUARD_AFTER_PLAYBACK_MS);
+    if (cancelledRef.current) return unmatched;
+
+    session.setRecording(true);
+    await sleep(RANGE_STEP_CAPTURE_MS);
+    session.setRecording(false);
+    if (cancelledRef.current) return unmatched;
+
+    const rec = session.getRecording();
+    const silence = silenceRef.current;
+    if (!rec || !silence) return unmatched;
+
+    // 静音PCMを先頭へ連結してから解析(runPipelineOfflineのノイズフロア推定窓のため必須)。
+    const combined = new Float32Array(silence.pcm.length + rec.pcm.length);
+    combined.set(silence.pcm, 0);
+    combined.set(rec.pcm, silence.pcm.length);
+    const { processed } = runPipelineOffline(combined, rec.sampleRate);
+
+    // 静音分(先頭)を除いた捕捉区間だけを判定に使う。
+    const silenceMs = (silence.pcm.length / rec.sampleRate) * 1000;
+    const stepProcessed = processed.filter((p) => p.timestampMs >= silenceMs);
+    return evaluateStep(stepProcessed, targetMidi);
+  };
+
+  /**
+   * 1パス(下降または上昇)を実行する。matched → 次のスケール音へ、unmatched または
+   * RANGE_MAX_STEPS到達で終了。reuseFirst が渡された場合、開始音の評価はやり直さず
+   * それを1ステップ目として使う(上昇パスが下降パスの開始音評価を再利用するため)。
+   */
+  const runPass = async (
+    direction: 'down' | 'up',
+    startMidi: number,
+    reuseFirst?: StepEvaluation
+  ): Promise<StepRecord[]> => {
+    const results: StepRecord[] = [];
+    let target = startMidi;
+    for (let i = 0; i < RANGE_MAX_STEPS; i++) {
+      if (cancelledRef.current) break;
+
+      let evaluation: StepEvaluation;
+      if (i === 0 && reuseFirst) {
+        evaluation = reuseFirst;
+      } else {
+        setStepNoteText(noteLabel(target));
+        setStepSuccess(false);
+        evaluation = await captureStep(target);
+        if (cancelledRef.current) break;
       }
-    }, 100);
-    return () => window.clearInterval(id);
-  }, [phase]);
+
+      results.push({ targetMidi: target, eval: evaluation });
+      setStepSuccess(evaluation.matched);
+
+      if (!evaluation.matched) break;
+      if (i === RANGE_MAX_STEPS - 1) break;
+
+      await sleep(STEP_SUCCESS_FLASH_MS);
+      if (cancelledRef.current) break;
+
+      target = direction === 'down' ? nextCMajorBelow(target) : nextCMajorAbove(target);
+    }
+    return results;
+  };
 
   const runMeasurement = async () => {
     setErrorMsg(null);
@@ -134,8 +190,8 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
       setPhase('preparing');
       try {
         await session.start(
-          (s) => {
-            latestRawRef.current = s;
+          () => {
+            // v2はライブピッチ表示をしない(お手本の目標音を表示する方式のため不要)。
           },
           (m) => setErrorMsg(m)
         );
@@ -149,55 +205,49 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
     }
 
     setPhase('preSilence');
+    session.setRecording(true);
     await sleep(NOISE_MEASURE_MS);
-    if (cancelledRef.current) return;
-
-    setNoteText('');
-    setPhase('measuringDown');
-    session.setRecording(true);
-    await countdown(RANGE_PASS_SECONDS * 1000, setRemainingMs);
     session.setRecording(false);
-    const down = session.getRecording();
     if (cancelledRef.current) return;
 
-    setNoteText('');
-    setPhase('measuringUp');
-    session.setRecording(true);
-    await countdown(RANGE_PASS_SECONDS * 1000, setRemainingMs);
-    session.setRecording(false);
-    const up = session.getRecording();
-    if (cancelledRef.current) return;
-
-    setPhase('analyzing');
-    setNoteText('');
-
-    if (!down || !up) {
-      if (!cancelledRef.current) setPhase('failed');
+    const silence = session.getRecording();
+    if (!silence) {
+      setPhase('failed');
       return;
     }
+    silenceRef.current = silence;
 
     try {
-      const a = runPipelineOffline(down.pcm, down.sampleRate);
-      const b = runPipelineOffline(up.pcm, up.sampleRate);
-      const analyzed = analyzeVocalRange([...a.raw, ...b.raw], [...a.processed, ...b.processed]);
+      const startMidi = loadSettings().range === 'high' ? START_MIDI_HIGH : START_MIDI_LOW;
+
+      setPhase('measuringDown');
+      const downSteps = await runPass('down', startMidi);
       if (cancelledRef.current) return;
 
-      if (!analyzed.ok) {
+      setPhase('measuringUp');
+      const upSteps = await runPass('up', startMidi, downSteps[0]?.eval);
+      if (cancelledRef.current) return;
+
+      // upSteps[0]はdownSteps[0]の再利用(同一開始音)なので集計時は二重に数えない。
+      const allSteps = [...downSteps, ...upSteps.slice(1)];
+      const aggregated = aggregateSteps(allSteps);
+
+      if (!aggregated.ok) {
         setPhase('failed');
         return;
       }
 
       const next: Settings = {
         ...loadSettings(),
-        rangeComfortLowMidi: analyzed.comfortLowMidi,
-        rangeComfortHighMidi: analyzed.comfortHighMidi,
-        rangeFullLowMidi: analyzed.fullLowMidi,
-        rangeFullHighMidi: analyzed.fullHighMidi,
+        rangeComfortLowMidi: aggregated.comfortLowMidi,
+        rangeComfortHighMidi: aggregated.comfortHighMidi,
+        rangeFullLowMidi: aggregated.fullLowMidi,
+        rangeFullHighMidi: aggregated.fullHighMidi,
         rangeMeasuredAt: new Date().toISOString(),
       };
       saveSettings(next);
       onDone(next);
-      setResult(analyzed);
+      setResult(aggregated);
       setPhase('result');
     } catch (e) {
       if (cancelledRef.current) return;
@@ -212,7 +262,7 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
       <div style={page}>
         <h2 style={{ fontSize: 20 }}>音域をはかる</h2>
         <p>
-          あなたの声の範囲をはかります。「んー」で、低い方と高い方へゆっくりスライドします(合わせて15秒くらい)
+          あなたの声の範囲をはかります。鳴ったお手本の音に、同じ高さで「んー」とついてきてください(合わせて15秒くらい)
         </p>
         <p style={{ fontSize: 13, color: '#888' }}>
           まわりが静かな場所で行うと、正確にはかれます。イヤホンは無くても大丈夫です
@@ -267,32 +317,25 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
     );
   }
 
-  // ---- RC-2 測定(下降/上昇) ----
+  // ---- RC-2 測定(下降/上昇。「音についていく方式」) ----
   if (phase === 'measuringDown' || phase === 'measuringUp') {
-    const seconds = Math.ceil(remainingMs / 1000);
+    const directionText = phase === 'measuringDown' ? '下がって' : '上がって';
     return (
       <div style={page}>
-        <p style={{ textAlign: 'center', fontSize: 18, marginTop: 24 }}>
-          {phase === 'measuringDown'
-            ? '楽な高さから、6秒かけてできるだけゆっくり、少しずつ低く「んー」とスライドしてください'
-            : '楽な高さから、6秒かけてできるだけゆっくり、少しずつ高く「んー」とスライドしてください'}
+        <h2 style={{ fontSize: 20, textAlign: 'center' }}>お手本についてきてください</h2>
+        <p style={{ textAlign: 'center', fontSize: 15 }}>
+          お手本が鳴ったら、同じ高さで「んー」。お手本は1音ずつ{directionText}いきます
         </p>
-        <div style={{ textAlign: 'center', fontSize: 48, fontWeight: 700, marginTop: 24 }}>{seconds}</div>
-        <p style={{ textAlign: 'center', fontSize: 22, color: '#2e7d32', marginTop: 16, minHeight: 30 }}>
-          いま: {noteText || '　'}
+        <div style={{ textAlign: 'center', fontSize: 48, fontWeight: 700, marginTop: 24, minHeight: 60 }}>
+          {stepNoteText}
+          {stepSuccess && <span style={{ color: '#2e7d32', fontSize: 28, marginLeft: 10 }}>✓</span>}
+        </div>
+        <p style={{ textAlign: 'center', fontSize: 13, color: '#888', marginTop: 16 }}>
+          出しにくくなったら止まって大丈夫。そこまでが今の範囲です
         </p>
         <button style={{ ...subBtn, marginTop: 40 }} onClick={onBack}>
           ← やめる
         </button>
-      </div>
-    );
-  }
-
-  // ---- 判定中(過渡) ----
-  if (phase === 'analyzing') {
-    return (
-      <div style={page}>
-        <p style={{ textAlign: 'center', marginTop: 80 }}>判定中…</p>
       </div>
     );
   }
@@ -302,7 +345,7 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
     return (
       <div style={page}>
         <div style={card}>
-          <p>うまく測れませんでした。もう一度、ゆっくりスライドしてみてください</p>
+          <p>うまく測れませんでした。もう一度、お手本が鳴ったら同じ高さで「んー」と声を出してみてください</p>
         </div>
         <button style={bigBtn} onClick={() => void runMeasurement()}>
           もう一度

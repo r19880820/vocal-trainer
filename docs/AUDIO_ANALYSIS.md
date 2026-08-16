@@ -163,9 +163,10 @@ cents = 1200 * log2(userHz / targetHz)   // features/scoring層で算出
 | OCTAVE_OFF_TOLERANCE_CENTS | 100 | 仮 |
 | GUARD_AFTER_PLAYBACK_MS | 250 | 仮 |
 | PHONATION_MAX_S / SILENCE_END_MS | 5 / 500 | 仮 |
-| RANGE_PASS_SECONDS / RANGE_BIN_MIN_MS / RANGE_MIN_BINS | 6s / 150 / 3 | 仮(音域チェック。BIN_MIN 250→150 = 2026-08-16誤測定事故対応) |
-| RANGE_CONF_DROP / RANGE_JITTER_FACTOR | 0.08 / 1.8 | 仮(「楽に出せる範囲」判定 — TRAINING_MODEL.md 音域チェック) |
-| RANGE_BIN_GAP_BRIDGE / RANGE_MIN_COMFORT_BINS | 2 / 5 | 仮(橋渡し半音数 / 楽な範囲の最小幅。2026-08-16誤測定事故対応) |
+| RANGE_STEP_TONE_MS / RANGE_STEP_CAPTURE_MS | 700 / 1500 | 仮(音域チェックv2: お手本長/捕捉長) |
+| RANGE_STEP_MATCH_CENTS / RANGE_STEP_COMFORT_CENTS | 150 / 75 | 仮(matched/comfortable判定 — TRAINING_MODEL.md 音域チェック) |
+| RANGE_STEP_MIN_VOICED_MS / RANGE_MAX_STEPS | 400 / 8 | 仮(ステップ有効最小有声時間 / 各方向の最大段数) |
+| RANGE_MIN_COMFORT_BINS | 5 | 仮(保存済み「楽な範囲」の最小幅ガード — v1異常値対策) |
 | DISPLAY_RANGE_CENTS | ±200 | 仮(UX) |
 | ZONE_OK_CENTS / ZONE_NEAR_CENTS | 50 / 100 | 仮(UX) |
 | LATENCY_BUDGET_MS | 100 | 目標値 |

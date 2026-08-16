@@ -48,14 +48,14 @@ export const TOWARD_USER_MIDI_MIN = 40; // 仮(E2≈82Hz。「ユーザーの声
 export const DURATION_MIN_MS = 800; // 仮
 export const DURATION_MAX_MS = 4000; // 仮
 
-// --- 音域チェック(Range Check。TRAINING_MODEL.md「音域チェック」/ AUDIO_ANALYSIS.md §8) ---
-export const RANGE_PASS_SECONDS = 6; // 仮(下降/上昇 各パスの長さ)
-export const RANGE_BIN_MIN_MS = 150; // 仮(半音ビンが「出せた」と数えられる最小有声時間。250はスライド通過速度に厳しすぎた — 2026-08-16誤測定事故)
-export const RANGE_MIN_BINS = 3; // 仮(これ未満しか出せなかったら測定失敗扱い)
-export const RANGE_CONF_DROP = 0.08; // 仮(基準confidenceからこれ以上落ちたら「余裕なし」)
-export const RANGE_JITTER_FACTOR = 1.8; // 仮(基準ジッターのこの倍数を超えたら「余裕なし」)
-export const RANGE_BIN_GAP_BRIDGE = 2; // 仮(素早く通過して未達だったビンをこの半音数まで橋渡しして連続扱い — 2026-08-16誤測定事故対策)
-export const RANGE_MIN_COMFORT_BINS = 5; // 仮(「楽な範囲」の幅がこれ未満なら測定失敗として正直に返す — 幅3半音の誤結果を出さない)
+// --- 音域チェック(Range Check v2「音についていく方式」。TRAINING_MODEL.md「音域チェック」/ AUDIO_ANALYSIS.md §8) ---
+export const RANGE_STEP_TONE_MS = 700; // 仮(各ステップのお手本再生長)
+export const RANGE_STEP_CAPTURE_MS = 1500; // 仮(お手本再生後の捕捉時間)
+export const RANGE_STEP_MATCH_CENTS = 150; // 仮(matched判定: |目標比cents中央値|がこれ以下)
+export const RANGE_STEP_COMFORT_CENTS = 75; // 仮(comfortable判定: matchedのうち|cents中央値|がこれ以下)
+export const RANGE_STEP_MIN_VOICED_MS = 400; // 仮(matched判定に必要な最小有声時間)
+export const RANGE_MAX_STEPS = 8; // 仮(各パスの最大ステップ数)
+export const RANGE_MIN_COMFORT_BINS = 5; // 仮(保存済み「楽な範囲」の幅がこれ未満なら測定失敗として正直に返す — v1誤測定事故対策。TrainingAppの保存値ガードが使用中)
 
 // --- UX display (UX_TRAINING.md §4) ---
 export const DISPLAY_RANGE_CENTS = 200; // 仮

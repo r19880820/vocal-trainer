@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextCMajorAbove, snapToCMajor } from './scale';
+import { nextCMajorAbove, nextCMajorBelow, snapToCMajor } from './scale';
 
 describe('snapToCMajor', () => {
   it('keeps scale notes unchanged', () => {
@@ -41,5 +41,14 @@ describe('nextCMajorAbove', () => {
     expect(nextCMajorAbove(52)).toBe(53); // ミ → ファ(半音上がスケール音)
     expect(nextCMajorAbove(59)).toBe(60); // シ → ド
     expect(nextCMajorAbove(49)).toBe(50); // 黒鍵からでも上のスケール音
+  });
+});
+
+describe('nextCMajorBelow', () => {
+  it('returns the next scale degree below', () => {
+    expect(nextCMajorBelow(60)).toBe(59); // ド → シ(半音下がスケール音)
+    expect(nextCMajorBelow(55)).toBe(53); // ソ → ファ(1音下。半音下のF#3は非スケール)
+    expect(nextCMajorBelow(50)).toBe(48); // レ → ド(1音下。半音下のC#3は非スケール)
+    expect(nextCMajorBelow(49)).toBe(48); // 黒鍵からでも下のスケール音
   });
 });
