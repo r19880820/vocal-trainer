@@ -178,6 +178,8 @@ cents = 1200 * log2(userHz / targetHz)   // features/scoring層で算出
 | NOTE_GOOD_CENTS / NOTE_OK_CENTS / NOTE_MIN_COUNT | 30 / 60 / 2 | 仮(成長記録「音ごとのようす」— UX §7.x) |
 | L3_INTERVAL_OK_CENTS | 75 | 仮(Level 3: 幅が合っている判定 — TRAINING_MODEL.md Level 3) |
 | BIAS_HINT_CENTS | 60 | 仮(方向付きアドバイス発動閾値。100→60: 実ユーザー+70cent傾向で不発だったため分離 — copy.tsローカル定数) |
+| MENU_WARMUP_TONE_MS / MENU_WARMUP_PHONATION_MS | 2500 / 8000 | 仮(今日のメニュー: ウォームアップのロングトーン) |
+| MENU_WEAK_SKILL_THRESHOLD | 0.6 | 仮(今日のメニュー: 重点にLevel 1/3を入れる弱さ閾値) |
 | DISPLAY_RANGE_CENTS | ±200 | 仮(UX) |
 | ZONE_OK_CENTS / ZONE_NEAR_CENTS | 50 / 100 | 仮(UX) |
 | LATENCY_BUDGET_MS | 100 | 目標値 |

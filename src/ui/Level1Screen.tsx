@@ -31,6 +31,12 @@ interface Props {
   session: AudioSession;
   /** 「← やめる/ホームへ」共通の離脱コールバック(ホームへ戻る)。 */
   onBack: () => void;
+  /** 「今日のメニュー」実行中(TrainingApp)から渡される進捗ラベル(例: 「メニュー 2/4」)。
+   * あれば画面上部に小さく表示する(UX_TRAINING.md §5e M-2)。単独起動時は省略され非表示。 */
+  menuLabel?: string;
+  /** 「今日のメニュー」実行中のみ渡される。あればL1-3結果画面の主ボタンが[つぎのメニューへ]になり、
+   * タップでこれを呼ぶ(もう一回は残す)。単独起動時(props省略)は従来どおり[もう一回][ホームへ]のまま。 */
+  onComplete?: () => void;
 }
 
 // localStorage を包むだけの薄いラッパーなのでモジュールスコープで1つ生成すれば十分(ADR-004。
@@ -125,7 +131,13 @@ const card: React.CSSProperties = {
   marginTop: 16,
 };
 
-export function Level1Screen({ session, onBack }: Props) {
+/** menuLabelがあれば画面上部に小さく表示する共通スニペット(UX_TRAINING.md §5e M-2)。全phaseで統一表示する。 */
+function MenuLabel({ menuLabel }: { menuLabel: string | undefined }) {
+  if (!menuLabel) return null;
+  return <p style={{ textAlign: 'center', fontSize: 12, color: '#aaa' }}>{menuLabel}</p>;
+}
+
+export function Level1Screen({ session, onBack, menuLabel, onComplete }: Props) {
   const [phase, setPhase] = useState<Phase>('intro');
   const [trialStage, setTrialStage] = useState<TrialStage>('tone');
   const [toneCount, setToneCount] = useState<1 | 2>(1);
@@ -295,6 +307,7 @@ export function Level1Screen({ session, onBack }: Props) {
   if (phase === 'intro') {
     return (
       <div style={page}>
+        <MenuLabel menuLabel={menuLabel} />
         <h2 style={{ fontSize: 20 }}>音の上下</h2>
         <p>2つの音が鳴ります。同じように「んー、んー」と真似してください(つなげて「んーんー」でも大丈夫)。</p>
         <p>大事なのは高さピッタリではなく、2つ目の音が「上がるか・下がるか」です</p>
@@ -317,6 +330,7 @@ export function Level1Screen({ session, onBack }: Props) {
   if (phase === 'preparing') {
     return (
       <div style={page}>
+        <MenuLabel menuLabel={menuLabel} />
         <p style={{ textAlign: 'center', marginTop: 80 }}>準備中…</p>
       </div>
     );
@@ -326,6 +340,7 @@ export function Level1Screen({ session, onBack }: Props) {
   if (phase === 'micDenied') {
     return (
       <div style={page}>
+        <MenuLabel menuLabel={menuLabel} />
         <div style={card}>
           <p>マイクが使えないと練習できません。ブラウザの設定からマイクを許可してください。</p>
         </div>
@@ -340,6 +355,7 @@ export function Level1Screen({ session, onBack }: Props) {
   if (phase === 'preSilence') {
     return (
       <div style={page}>
+        <MenuLabel menuLabel={menuLabel} />
         <p style={{ textAlign: 'center', fontSize: 18, marginTop: 80 }}>そのまま静かに…</p>
         <button style={{ ...subBtn, marginTop: 60 }} onClick={onBack}>
           ← やめる
@@ -352,6 +368,7 @@ export function Level1Screen({ session, onBack }: Props) {
   if (phase === 'trial') {
     return (
       <div style={page}>
+        <MenuLabel menuLabel={menuLabel} />
         <h2 style={{ fontSize: 20, textAlign: 'center' }}>音の上下</h2>
         <p style={{ textAlign: 'center', fontSize: 13, color: '#888' }}>
           {trialNumber}問目 / {L1_TRIALS}
@@ -391,6 +408,7 @@ export function Level1Screen({ session, onBack }: Props) {
     const { validCount, correctCount } = setResult;
     return (
       <div style={page}>
+        <MenuLabel menuLabel={menuLabel} />
         {validCount > 0 ? (
           <>
             <h2 style={{ fontSize: 20 }}>
@@ -410,6 +428,12 @@ export function Level1Screen({ session, onBack }: Props) {
               マイクの近くで、はっきり・長めに「んー」と声を出してみましょう
             </p>
           </div>
+        )}
+        {onComplete && (
+          // メニュー中の主ボタン(UX_TRAINING.md §5e M-2)。もう一回は残す(タスク仕様)。
+          <button style={{ ...bigBtn, background: '#1565c0' }} onClick={onComplete}>
+            つぎのメニューへ
+          </button>
         )}
         <button style={bigBtn} onClick={() => void runSet()}>
           もう一回

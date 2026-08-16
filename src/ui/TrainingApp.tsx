@@ -11,6 +11,7 @@ import { makeLevel2Spec, type VoiceRange } from '../core/exercise/level2';
 import type { ExerciseSpec } from '../core/types';
 import { midiToSolfege } from '../core/pitch/scale';
 import { RANGE_MIN_COMFORT_BINS } from '../core/constants';
+import { buildDailyMenu, type MenuStep } from '../core/menu/buildDailyMenu';
 import { loadSettings, saveSettings, type Settings } from '../data/settings';
 import { createProgressStore } from '../data/progressStore';
 import { Indicator } from './Indicator';
@@ -20,7 +21,21 @@ import { Level1Screen } from './Level1Screen';
 import { Level3Screen } from './Level3Screen';
 import { liveStatusText, resultCopy, signedMedianCentsVsTarget } from './copy';
 
-type Screen = 'home' | 'micCheck' | 'range' | 'training' | 'result' | 'progress' | 'rangeCheck' | 'level1' | 'level3';
+type Screen =
+  | 'home'
+  | 'micCheck'
+  | 'range'
+  | 'training'
+  | 'result'
+  | 'progress'
+  | 'rangeCheck'
+  | 'level1'
+  | 'level3'
+  | 'menuIntro'
+  | 'menuDone';
+
+// 「今日のメニュー」M-1の番号表示(UX_TRAINING.md §5e)。4ステップ固定(TRAINING_MODEL.md)なのでこの4文字で足りる。
+const MENU_STEP_NUMBERS = ['①', '②', '③', '④'];
 
 // localStorage を包むだけの薄いラッパーなのでモジュールスコープで1つ生成すれば十分(ADR-004)
 const progressStore = createProgressStore();
@@ -127,8 +142,14 @@ export function TrainingApp() {
   const [showDetail, setShowDetail] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [micHint, setMicHint] = useState(false);
+  // 「今日のメニュー」起点で初回オンボーディング(SC-2/SC-3)を通過中か(通過後にメニュー表へ合流する)
+  const [pendingMenu, setPendingMenu] = useState(false);
   // いま練習中の目標(SC-4の音名表示用。「何が難しいのか分からない」対策 — UX §2 SC-4)
   const [currentSpec, setCurrentSpec] = useState<ExerciseSpec | null>(null);
+  // 「今日のメニュー」(UX_TRAINING.md §5e / TRAINING_MODEL.md「今日のメニュー」)。
+  // menu!==null の間はメニュー実行中(各画面の「メニュー i/4」表示・result画面のボタン差し替えに使う)。
+  const [menu, setMenu] = useState<MenuStep[] | null>(null);
+  const [menuIndex, setMenuIndex] = useState(0);
   // 音域チェック専用のAudioSession(engineが内部に持つものとは別インスタンス。マイクリソースの
   // 競合を避けるため、engine.cancel()してから生成する — 詳細は最終報告のAudioSession共有方式を参照)。
   const rangeSessionRef = useRef<AudioSession | null>(null);
@@ -173,6 +194,7 @@ export function TrainingApp() {
         level1SessionRef.current = null;
         level3SessionRef.current?.stop();
         level3SessionRef.current = null;
+        setMenu(null); // メニュー実行中のバックグラウンド遷移も途中離脱として扱う(TRAINING_MODEL.md 遷移表)
         setScreen('home');
       }
     };
@@ -213,6 +235,19 @@ export function TrainingApp() {
     const next = { ...settings, firstRunDone: true };
     setSettings(next);
     saveSettings(next);
+    if (pendingMenu) {
+      // メニュー起点のオンボーディング継続。SC-2で起動したマイクはどの分岐でも即解放する
+      // (Codexレビュー指摘: 声域選択画面へ進む分岐で解放漏れ=選択中もマイクが動き続けていた)。
+      // メニュー表画面・声域選択ではマイク不要で、各ステップが自分で取り直す
+      engine.cancel();
+      if (!hasMeasuredRange(next) && !next.range) {
+        setScreen('range');
+        return;
+      }
+      setPendingMenu(false);
+      openMenuIntro(next);
+      return;
+    }
     if (hasMeasuredRange(next)) startTraining(next.range ?? 'low');
     else if (next.range) startTraining(next.range);
     else setScreen('range');
@@ -222,12 +257,111 @@ export function TrainingApp() {
     const next = { ...settings, range };
     setSettings(next);
     saveSettings(next);
+    if (pendingMenu) {
+      setPendingMenu(false);
+      engine.cancel();
+      openMenuIntro(next);
+      return;
+    }
     startTraining(range);
   };
 
   const goHome = () => {
     engine.cancel();
+    setMenu(null); // 「← やめる/ホームへ」= メニューの途中離脱(責めない。TRAINING_MODEL.md/UX §5e M-2)
+    setPendingMenu(false);
     setScreen('home');
+  };
+
+  // ---- 「今日のメニュー」(M-1〜M-3。UX_TRAINING.md §5e / TRAINING_MODEL.md「今日のメニュー」) ----
+
+  /** Settings + SkillSnapshot履歴からメニューを編成する(buildDailyMenuへの入力組み立てのみ担う)。
+   * オンボーディング直後は state の settings が古いため、確定済み Settings を引数で受け取れるようにする。 */
+  const buildMenuList = (s: Settings = settings): MenuStep[] => {
+    const comfortRange = hasMeasuredRange(s)
+      ? { lowMidi: s.rangeComfortLowMidi, highMidi: s.rangeComfortHighMidi }
+      : null;
+    const range: VoiceRange = s.range ?? 'low';
+    return buildDailyMenu({ comfortRange, range, snapshots: progressStore.loadAll() });
+  };
+
+  const openMenuIntro = (s: Settings) => {
+    setMenu(buildMenuList(s));
+    setMenuIndex(0);
+    setScreen('menuIntro');
+  };
+
+  const onStartMenu = () => {
+    setErrorMsg(null);
+    // 初回はメニュー起点でもオンボーディング(SC-2マイク確認→SC-3声域選択)を通す
+    // (実装レビュー懸念対応: メニューが主導線になったため、案内なしのマイク許可プロンプトや
+    // 声域'low'既定のまま的外れな音域で始まる事故を避ける)
+    if (!settings.firstRunDone) {
+      setPendingMenu(true);
+      setScreen('micCheck');
+      setMicHint(false);
+      window.setTimeout(() => setMicHint(true), 5000);
+      void engine.startSession();
+      return;
+    }
+    if (!hasMeasuredRange(settings) && !settings.range) {
+      setPendingMenu(true);
+      setScreen('range');
+      return;
+    }
+    openMenuIntro(settings);
+  };
+
+  const onMenuIntroBack = () => {
+    setMenu(null);
+    setPendingMenu(false);
+    setScreen('home');
+  };
+
+  /** list[index] のステップを開始する(ステップ種別ごとに実行先を振り分ける)。
+   * index が範囲外なら完了画面(M-3)へ。 */
+  const startMenuStep = (list: MenuStep[], index: number) => {
+    const step = list[index];
+    if (!step) {
+      // 4ステップ完了(finisherはengine駆動なので、ここでマイクを確実に解放する — レビュー指摘:
+      // 未解放だとM-3完了画面でマイクが起動したまま残る)。
+      engine.cancel();
+      setMenu(null);
+      setScreen('menuDone');
+      return;
+    }
+    setErrorMsg(null);
+    setMenuIndex(index);
+    if (step.kind === 'level1Set') {
+      // 音域チェック・Level1直接起動と同じ方式(engineのマイクを解放してから専用sessionを生成 — 二重マイク防止)
+      engine.cancel();
+      level1SessionRef.current = new AudioSession();
+      setScreen('level1');
+      return;
+    }
+    if (step.kind === 'level3Trial') {
+      engine.cancel();
+      level3SessionRef.current = new AudioSession();
+      setScreen('level3');
+      return;
+    }
+    // warmupLongTone / level2Focus / finisher: 既存のLevel 2フロー(engine)をそのまま使う
+    if (!step.spec) return; // 到達しない想定(buildDailyMenuの不変条件)。型安全のためのガード
+    setScreen('training');
+    setCurrentSpec(step.spec);
+    void engine.beginExercise(step.spec);
+  };
+
+  /** 「つぎのメニューへ」共通ハンドラ(engine駆動のresult画面・Level1/Level3のonCompleteの両方から呼ばれる)。
+   * 現在アクティブかもしれないL1/L3専用sessionを確実に解放してから次のステップへ進む
+   * (ステップ切替時に前のsessionを解放する、というタスク要件をここに集約する)。 */
+  const onMenuStepComplete = () => {
+    if (!menu) return;
+    level1SessionRef.current?.stop();
+    level1SessionRef.current = null;
+    level3SessionRef.current?.stop();
+    level3SessionRef.current = null;
+    startMenuStep(menu, menuIndex + 1);
   };
 
   // ---- 音域チェック(RC-1〜RC-3)への遷移 ----
@@ -261,6 +395,7 @@ export function TrainingApp() {
   const onLevel1Back = () => {
     level1SessionRef.current?.stop();
     level1SessionRef.current = null;
+    setMenu(null); // メニュー中の途中離脱も含む(単独起動時はもともとnullなので無害)
     setScreen('home');
   };
 
@@ -275,6 +410,7 @@ export function TrainingApp() {
   const onLevel3Back = () => {
     level3SessionRef.current?.stop();
     level3SessionRef.current = null;
+    setMenu(null); // メニュー中の途中離脱も含む(単独起動時はもともとnullなので無害)
     setScreen('home');
   };
 
@@ -282,7 +418,7 @@ export function TrainingApp() {
     engineState === 'playingReference' ? 'playing' : engineState === 'listening' ? 'waiting' : 'active';
   const statusText = useStatusText(live, phase);
 
-  // ---- SC-1 ホーム ----
+  // ---- SC-1 ホーム(§5e改: 主導線は「今日のメニュー」) ----
   if (screen === 'home') {
     return (
       <div style={page}>
@@ -292,10 +428,14 @@ export function TrainingApp() {
           <p style={{ color: '#888', fontSize: 14 }}>これまで {practiceCount} 回練習しました</p>
         )}
         <div style={card}>
-          <div style={{ fontSize: 14, color: '#888' }}>今日の練習</div>
-          <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>音の高さを合わせる練習</div>
+          <div style={{ fontSize: 14, color: '#888' }}>今日のメニュー</div>
+          <div style={{ fontSize: 16, marginTop: 4 }}>
+            {practiceCount > 0
+              ? 'あなたの記録から今日の練習を組みました(約10分)'
+              : 'まずは基本の練習を組みました(約10分)'}
+          </div>
         </div>
-        <button style={bigBtn} onClick={onStart}>
+        <button style={bigBtn} onClick={onStartMenu}>
           ▶ はじめる
         </button>
         {hasMeasuredRange(settings) ? (
@@ -320,6 +460,15 @@ export function TrainingApp() {
             せいちょうを見る
           </button>
         )}
+
+        <h2 style={{ fontSize: 16, color: '#888', marginTop: 32 }}>じぶんで選んで練習</h2>
+        <div style={card}>
+          <div style={{ fontSize: 14, color: '#888' }}>今日の練習</div>
+          <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>音の高さを合わせる練習</div>
+        </div>
+        <button style={bigBtn} onClick={onStart}>
+          ▶ はじめる
+        </button>
         <div style={card}>
           <div style={{ fontSize: 14, color: '#888' }}>耳と声のトレーニング</div>
           <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>音の上下を聞き分ける練習</div>
@@ -337,6 +486,46 @@ export function TrainingApp() {
         <p style={{ fontSize: 12, color: '#aaa', marginTop: 24 }}>
           イヤホンをつけると、お手本の音がじゃまをせず、より正確に練習できます(なくても練習できます)
         </p>
+      </div>
+    );
+  }
+
+  // ---- M-1 今日のメニュー(開始前) ----
+  if (screen === 'menuIntro' && menu) {
+    return (
+      <div style={page}>
+        <h2 style={{ fontSize: 20 }}>今日のメニュー</h2>
+        {menu.map((step, i) => (
+          <div key={i} style={card}>
+            <div style={{ fontWeight: 700 }}>
+              {MENU_STEP_NUMBERS[i] ?? `${i + 1}.`} {step.title}
+            </div>
+            <p style={{ fontSize: 14, color: '#555', marginTop: 4 }}>{step.reason}</p>
+          </div>
+        ))}
+        <button style={bigBtn} onClick={() => startMenuStep(menu, 0)}>
+          はじめる
+        </button>
+        <button style={subBtn} onClick={onMenuIntroBack}>
+          ← もどる
+        </button>
+      </div>
+    );
+  }
+
+  // ---- M-3 今日のメニュー完了 ----
+  if (screen === 'menuDone') {
+    return (
+      <div style={page}>
+        <h2 style={{ fontSize: 20, textAlign: 'center', marginTop: 40 }}>
+          今日のメニュー完了!おつかれさまでした 🎉
+        </h2>
+        <p style={{ textAlign: 'center', color: '#888', marginTop: 12 }}>
+          これまで {practiceCount} 回練習しました
+        </p>
+        <button style={bigBtn} onClick={goHome}>
+          ホームへ
+        </button>
       </div>
     );
   }
@@ -406,6 +595,11 @@ export function TrainingApp() {
   if (screen === 'training') {
     return (
       <div style={page}>
+        {menu && (
+          <p style={{ textAlign: 'center', fontSize: 12, color: '#aaa' }}>
+            メニュー {menuIndex + 1}/4
+          </p>
+        )}
         {engineState === 'calibrating' && <p style={{ textAlign: 'center', marginTop: 80 }}>準備中…(まわりの音を確認しています)</p>}
         {engineState === 'tooNoisy' && (
           <div style={card}>
@@ -468,12 +662,21 @@ export function TrainingApp() {
     );
   }
 
-  // ---- SC-5 結果画面 ----
+  // ---- SC-5 結果画面(menu!==null 時は M-2 の「メニュー中の結果画面」仕様に差し替え) ----
   if (screen === 'result' && outcome) {
     const copy = resultCopy(outcome);
     const m = outcome.result.metrics;
+    const retry = () => {
+      setScreen('training');
+      engine.retry();
+    };
     return (
       <div style={page}>
+        {menu && (
+          <p style={{ textAlign: 'center', fontSize: 12, color: '#aaa' }}>
+            メニュー {menuIndex + 1}/4
+          </p>
+        )}
         <div style={{ textAlign: 'center', fontSize: 40, marginTop: 24 }}>✓</div>
         <p style={{ fontSize: 18, textAlign: 'center' }}>{copy.praise}</p>
         <div style={card}>
@@ -482,51 +685,66 @@ export function TrainingApp() {
           <div style={{ fontSize: 15 }}>を練習しましょう</div>
           <p style={{ fontSize: 14, color: '#555', marginTop: 8 }}>{copy.action}</p>
         </div>
-        <button style={bigBtn} onClick={() => {
-          setScreen('training');
-          engine.retry();
-        }}>
-          もう一回
-        </button>
-        <button
-          style={{ ...bigBtn, background: '#1565c0' }}
-          onClick={() => {
-            setScreen('training');
-            setCurrentSpec(outcome.next.spec);
-            void engine.beginExercise(outcome.next.spec);
-          }}
-        >
-          次の練習へ
-        </button>
+        {menu ? (
+          <>
+            {/* メニュー中の主ボタン(UX_TRAINING.md §5e M-2)。「次の練習へ」は非表示 */}
+            <button style={{ ...bigBtn, background: '#1565c0' }} onClick={onMenuStepComplete}>
+              つぎのメニューへ
+            </button>
+            <button style={bigBtn} onClick={retry}>
+              もう一回
+            </button>
+          </>
+        ) : (
+          <>
+            <button style={bigBtn} onClick={retry}>
+              もう一回
+            </button>
+            <button
+              style={{ ...bigBtn, background: '#1565c0' }}
+              onClick={() => {
+                setScreen('training');
+                setCurrentSpec(outcome.next.spec);
+                void engine.beginExercise(outcome.next.spec);
+              }}
+            >
+              次の練習へ
+            </button>
+          </>
+        )}
         <button style={subBtn} onClick={goHome}>
           ホームへ
         </button>
-        <p style={{ fontSize: 13, color: '#888', marginTop: 16, cursor: 'pointer' }} onClick={() => setShowDetail((v) => !v)}>
-          詳しく見る {showDetail ? '▲' : '>'}
-        </p>
-        {showDetail && (
-          <div style={{ ...card, fontSize: 13, lineHeight: 2 }}>
-            お手本の音: {midiToSolfege(outcome.result.spec.targets[0].midiNote)}
-            <br />
-            {(() => {
-              const bias = signedMedianCentsVsTarget(outcome.result);
-              if (bias === null) return null;
-              const label = bias <= -30 ? 'お手本より低め' : bias >= 30 ? 'お手本より高め' : 'ちょうど';
-              return (
-                <>
-                  傾向: {label}({Math.round(bias)})
-                  <br />
-                </>
-              );
-            })()}
-            高さの一致: {(m.pitchAccuracy * 100).toFixed(0)}%
-            <br />
-            ズレの中央値: {m.medianAbsCents.toFixed(0)}(小さいほど合っています)
-            <br />
-            声の安定: {m.pitchStability === null ? '測定できず' : `${(m.pitchStability * 100).toFixed(0)}%`}
-            <br />
-            音の入り: {m.attackAccuracy === null ? '測定できず' : `${(m.attackAccuracy * 100).toFixed(0)}%`}
-          </div>
+        {!menu && (
+          <>
+            <p style={{ fontSize: 13, color: '#888', marginTop: 16, cursor: 'pointer' }} onClick={() => setShowDetail((v) => !v)}>
+              詳しく見る {showDetail ? '▲' : '>'}
+            </p>
+            {showDetail && (
+              <div style={{ ...card, fontSize: 13, lineHeight: 2 }}>
+                お手本の音: {midiToSolfege(outcome.result.spec.targets[0].midiNote)}
+                <br />
+                {(() => {
+                  const bias = signedMedianCentsVsTarget(outcome.result);
+                  if (bias === null) return null;
+                  const label = bias <= -30 ? 'お手本より低め' : bias >= 30 ? 'お手本より高め' : 'ちょうど';
+                  return (
+                    <>
+                      傾向: {label}({Math.round(bias)})
+                      <br />
+                    </>
+                  );
+                })()}
+                高さの一致: {(m.pitchAccuracy * 100).toFixed(0)}%
+                <br />
+                ズレの中央値: {m.medianAbsCents.toFixed(0)}(小さいほど合っています)
+                <br />
+                声の安定: {m.pitchStability === null ? '測定できず' : `${(m.pitchStability * 100).toFixed(0)}%`}
+                <br />
+                音の入り: {m.attackAccuracy === null ? '測定できず' : `${(m.attackAccuracy * 100).toFixed(0)}%`}
+              </div>
+            )}
+          </>
         )}
       </div>
     );
@@ -544,12 +762,26 @@ export function TrainingApp() {
 
   // ---- Level 1「音の上下」(L1-1〜L1-3) ----
   if (screen === 'level1' && level1SessionRef.current) {
-    return <Level1Screen session={level1SessionRef.current} onBack={onLevel1Back} />;
+    return (
+      <Level1Screen
+        session={level1SessionRef.current}
+        onBack={onLevel1Back}
+        menuLabel={menu ? `メニュー ${menuIndex + 1}/4` : undefined}
+        onComplete={menu ? onMenuStepComplete : undefined}
+      />
+    );
   }
 
   // ---- Level 3「2音まねっこ」(L3-1〜L3-3) ----
   if (screen === 'level3' && level3SessionRef.current) {
-    return <Level3Screen session={level3SessionRef.current} onBack={onLevel3Back} />;
+    return (
+      <Level3Screen
+        session={level3SessionRef.current}
+        onBack={onLevel3Back}
+        menuLabel={menu ? `メニュー ${menuIndex + 1}/4` : undefined}
+        onComplete={menu ? onMenuStepComplete : undefined}
+      />
+    );
   }
 
   return null;

@@ -140,7 +140,27 @@ Training Recommendation が生成する目標(オクターブ寄せ・reachTarge
 結果はSettingsに保存(comfortLow/High, fullLow/High, measuredAt)。Level 2の目標プールが
 自動的に「楽に出せる範囲」へ切り替わる。再測定はいつでも可(ホームから)。
 
-## Scoring → Weakness Detection(ルールベース)
+## 今日のメニュー(セッション化 — 2026-08-16 ユーザー承認「基盤からボイトレへ」第1段)
+
+バラバラのドリルを**10分のガイド付きセッション**に編成する。編成はルールベース(core/menu/buildDailyMenu.ts、
+純関数。将来 AI Coach に差し替え可能な入出力: Settings+SkillSnapshot[] → MenuStep[])。
+
+構成(4ステップ固定):
+1. **こえのじゅんび(ウォームアップ)**: 楽な範囲の中央のスケール音でロングトーン
+   (お手本 MENU_WARMUP_TONE_MS=2500ms / 発声上限 MENU_WARMUP_PHONATION_MS=8000ms)。
+   案内: 「んー」でもリップロールでもOK(SOVT系の声の出し方案内はここに載せる)
+2-3. **今日の重点(2つ、データ駆動)** — 優先順:
+   a. 「音ごとのようす」で最悪の音(count≥NOTE_MIN_COUNT かつ medianAbsCents最大)→ その音のLevel 2集中
+      (reason: 「◯◯はのびしろの音。集中して合わせましょう」)
+   b. directionAccuracy の直近週中央値 < MENU_WEAK_SKILL_THRESHOLD(0.6)→ Level 1セット
+   c. intervalAccuracy の直近週中央値 < 0.6 → Level 3
+   d. 埋まらない分は Level 2ランダム(データ無し初心者は a=Level 2ランダム, b=Level 1)
+   同種は重複させない(重点2つが両方Level 2集中なら2音目は別の音)
+4. **しあげ(フィニッシャー)**: 最良の音(medianAbsCents最小、count≥2。無ければ楽な範囲の中央)の
+   Level 2 — 成功体験で終わる(reason: 「とくいな音で気持ちよく締めましょう」)
+
+原則: メニューは提案であり強制ではない(従来の個別練習も「じぶんで選ぶ」として残す)。
+各ステップの評価・保存は既存の各Levelの仕組みそのまま(メニューは「編成と進行」だけを担う)。
 
 ```text
 入力: ExerciseResult(validity, metrics, octaveOff) + 直近の Diagnosis / SkillSnapshot 履歴

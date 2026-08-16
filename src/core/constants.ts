@@ -79,6 +79,11 @@ export const NOTE_GOOD_CENTS = 30; // 仮(音ごとのズレ中央値がこれ�
 export const NOTE_OK_CENTS = 60; // 仮(これ以下=「まあまあ」、超えたら「これから」)
 export const NOTE_MIN_COUNT = 2; // 仮(この回数以上練習した音だけ表示 — 1回だけの結果で決めつけない)
 
+// --- 今日のメニュー(セッション化。TRAINING_MODEL.md「今日のメニュー」/ AUDIO_ANALYSIS.md §8) ---
+export const MENU_WARMUP_TONE_MS = 2500; // 仮(ウォームアップのお手本ロングトーン再生長)
+export const MENU_WARMUP_PHONATION_MS = 8000; // 仮(ウォームアップの発声上限)
+export const MENU_WEAK_SKILL_THRESHOLD = 0.6; // 仮(重点にLevel 1/3を入れる弱さ閾値。directionAccuracy/intervalAccuracy共通)
+
 // --- UX display (UX_TRAINING.md §4) ---
 export const DISPLAY_RANGE_CENTS = 200; // 仮
 export const ZONE_OK_CENTS = 50; // 仮
