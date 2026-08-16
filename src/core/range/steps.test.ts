@@ -55,6 +55,19 @@ describe('evaluateStep', () => {
     expect(r.comfortable).toBe(true);
   });
 
+  it('matched but wobbly (σ > RANGE_STEP_COMFORT_SIGMA_CENTS) is NOT comfortable — 「楽」=ぶれずに出せたこと', () => {
+    // 目標ちょうどを中心に ±120cent 交互に振る → 中央値≈0(matched)だが σ≈120 > 50
+    const processed = buildProcessed(SAMPLES_AT_MIN_VOICED, target).map((p, i) => ({
+      ...p,
+      midiNote: target + (i % 2 === 0 ? 1.2 : -1.2),
+    }));
+    const r = evaluateStep(processed, target);
+    expect(r.matched).toBe(true);
+    expect(r.sigmaCents).not.toBeNull();
+    expect(r.sigmaCents!).toBeGreaterThan(50);
+    expect(r.comfortable).toBe(false);
+  });
+
   it('matches but is not comfortable just over the comfort boundary (76 cents)', () => {
     const processed = buildProcessed(SAMPLES_AT_MIN_VOICED, target + 76 / 100);
     const r = evaluateStep(processed, target);
@@ -92,6 +105,7 @@ describe('aggregateSteps', () => {
     matched,
     comfortable,
     medianCents: 0,
+    sigmaCents: 0,
     voicedMs: 1000,
   });
 

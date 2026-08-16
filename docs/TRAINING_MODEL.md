@@ -82,11 +82,16 @@ Training Recommendation が生成する目標(オクターブ寄せ・reachTarge
    自動やり直し。開始音の評価を上昇パスへ再利用するのは matched だった場合のみ —
    2026-08-16 初回実測の全滅事故対応)
    - **matched**: 有声 ≥ RANGE_STEP_MIN_VOICED_MS(400ms)かつ |目標比cents中央値| ≤ RANGE_STEP_MATCH_CENTS(150)
-   - **comfortable**: matched かつ |cents中央値| ≤ RANGE_STEP_COMFORT_CENTS(75)
+   - **comfortable**: matched かつ |cents中央値| ≤ RANGE_STEP_COMFORT_CENTS(75)かつ
+     **centsの標準偏差 ≤ RANGE_STEP_COMFORT_SIGMA_CENTS(50)**(「楽に出せた」=当たっただけでなく
+     ぶれずに出せたこと — 2026-08-16 ユーザー指摘「きれいかどうか見てない」対応。
+     音色の美しさそのものは判定しない方針は不変)
    - matched → 次の下のスケール音へ。unmatched または RANGE_MAX_STEPS(8)到達で下降終了
 3. **上昇パス**: 同じ開始音から上へ同様に
 4. **楽に出せる範囲** = comfortable だった音の最低〜最高 / **がんばれば** = matched の最低〜最高。
-   結果表示+設定に保存
+   結果表示+設定に保存。**matched のまま RANGE_MAX_STEPS に達した方向は「まだ余裕あり」を明示**
+   (上限打ち切りによる過小評価を黙って返さない)。comfortable がゼロでも matched があれば
+   結果は返す(お手本プールはプリセットへフォールバック)
 5. どちらのパスも開始音すら matched しない → 測定失敗(やり直し案内)
 
 解析(core/range/steps.ts、純関数): ステップ単位の判定のみ(matched/comfortable — 上記閾値)。

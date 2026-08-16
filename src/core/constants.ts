@@ -54,6 +54,7 @@ export const RANGE_STEP_CAPTURE_MS = 2000; // 仮(お手本再生後の捕捉時
 export const RANGE_STEP_MATCH_CENTS = 150; // 仮(matched判定: |目標比cents中央値|がこれ以下)
 export const RANGE_STEP_COMFORT_CENTS = 75; // 仮(comfortable判定: matchedのうち|cents中央値|がこれ以下)
 export const RANGE_STEP_MIN_VOICED_MS = 400; // 仮(matched判定に必要な最小有声時間)
+export const RANGE_STEP_COMFORT_SIGMA_CENTS = 50; // 仮(comfortable判定: centsの標準偏差がこれ以下=「ぶれずに出せた」。2026-08-16 ユーザー指摘「きれいかどうか見てない」対応)
 export const RANGE_MAX_STEPS = 8; // 仮(各パスの最大ステップ数)
 export const RANGE_MIN_COMFORT_BINS = 5; // 仮(保存済み「楽な範囲」の幅がこれ未満なら測定失敗として正直に返す — v1誤測定事故対策。TrainingAppの保存値ガードが使用中)
 

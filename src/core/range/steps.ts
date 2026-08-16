@@ -4,15 +4,23 @@
 // 判定はステップ単位の閾値比較のみでよい(旧 analyzeRange.ts のビン集計・グリッサンド解析は
 // 自由スライド前提だったため v2 で廃止 — TRAINING_MODEL.md 履歴メモ参照)。
 import type { ProcessedPitchSample } from '../types';
-import { RANGE_STEP_COMFORT_CENTS, RANGE_STEP_MATCH_CENTS, RANGE_STEP_MIN_VOICED_MS } from '../constants';
+import {
+  RANGE_STEP_COMFORT_CENTS,
+  RANGE_STEP_COMFORT_SIGMA_CENTS,
+  RANGE_STEP_MATCH_CENTS,
+  RANGE_STEP_MIN_VOICED_MS,
+} from '../constants';
 
 export interface StepEvaluation {
   /** 有声時間 >= RANGE_STEP_MIN_VOICED_MS かつ |目標比cents中央値| <= RANGE_STEP_MATCH_CENTS */
   matched: boolean;
-  /** matched かつ |目標比cents中央値| <= RANGE_STEP_COMFORT_CENTS */
+  /** matched かつ |目標比cents中央値| <= RANGE_STEP_COMFORT_CENTS かつ σ <= RANGE_STEP_COMFORT_SIGMA_CENTS
+   * (「楽に出せた」=当たっただけでなく、ぶれずに出せたこと — 2026-08-16 ユーザー指摘対応) */
   comfortable: boolean;
   /** voicedサンプルの (実数midiNote - targetMidi) * 100 の中央値。voicedサンプルが1件も無ければ null */
   medianCents: number | null;
+  /** voicedサンプルの cents の標準偏差(ぶれ)。voicedサンプルが1件も無ければ null */
+  sigmaCents: number | null;
   /** voicedサンプルの有声時間合計(ms) */
   voicedMs: number;
 }
@@ -56,9 +64,19 @@ export function evaluateStep(processed: ProcessedPitchSample[], targetMidi: numb
   }
   const medianCents = median(centsValues);
   const absCents = medianCents === null ? null : Math.abs(medianCents);
+  let sigmaCents: number | null = null;
+  if (centsValues.length > 0) {
+    const mean = centsValues.reduce((s, v) => s + v, 0) / centsValues.length;
+    sigmaCents = Math.sqrt(centsValues.reduce((s, v) => s + (v - mean) ** 2, 0) / centsValues.length);
+  }
   const matched = voicedMs >= RANGE_STEP_MIN_VOICED_MS && absCents !== null && absCents <= RANGE_STEP_MATCH_CENTS;
-  const comfortable = matched && absCents !== null && absCents <= RANGE_STEP_COMFORT_CENTS;
-  return { matched, comfortable, medianCents, voicedMs };
+  const comfortable =
+    matched &&
+    absCents !== null &&
+    absCents <= RANGE_STEP_COMFORT_CENTS &&
+    sigmaCents !== null &&
+    sigmaCents <= RANGE_STEP_COMFORT_SIGMA_CENTS;
+  return { matched, comfortable, medianCents, sigmaCents, voicedMs };
 }
 
 export interface RangeStepsResult {

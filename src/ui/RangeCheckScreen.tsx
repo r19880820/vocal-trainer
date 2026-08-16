@@ -103,6 +103,8 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
   const [stepStage, setStepStage] = useState<'tone' | 'sing' | 'judging'>('tone');
   const [result, setResult] = useState<RangeStepsResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // 上限8音に当たって打ち切られた(=まだ余裕があった)方向。過小評価の明示用(2026-08-16 ユーザー指摘)
+  const [openEnds, setOpenEnds] = useState<{ low: boolean; high: boolean }>({ low: false, high: false });
   // 開始直後に録音した静音PCM(ノイズフロア推定用)。各ステップの解析でこの先頭へ連結する。
   const silenceRef = useRef<{ sampleRate: number; pcm: Float32Array } | null>(null);
   // アンマウント後にawait継続分がstateを書き換えないためのガード(session.stop()は親の責務なので
@@ -118,7 +120,13 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
 
   /** 1ステップ分(お手本再生→ガード→捕捉→解析)を実行し判定結果を返す。 */
   const captureStep = async (targetMidi: number): Promise<StepEvaluation> => {
-    const unmatched: StepEvaluation = { matched: false, comfortable: false, medianCents: null, voicedMs: 0 };
+    const unmatched: StepEvaluation = {
+      matched: false,
+      comfortable: false,
+      medianCents: null,
+      sigmaCents: null,
+      voicedMs: 0,
+    };
 
     setStepStage('tone');
     await session.playTone(midiToHz(targetMidi), RANGE_STEP_TONE_MS);
@@ -253,6 +261,12 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
         setPhase('failed');
         return;
       }
+
+      // 最後まで matched のまま上限8音に達した方向は「まだ余裕あり」= 実際の範囲はこれより広い可能性
+      setOpenEnds({
+        low: downSteps.length === RANGE_MAX_STEPS && downSteps[downSteps.length - 1].eval.matched,
+        high: upSteps.length === RANGE_MAX_STEPS && upSteps[upSteps.length - 1].eval.matched,
+      });
 
       const next: Settings = {
         ...loadSettings(),
@@ -394,15 +408,32 @@ export function RangeCheckScreen({ session, onDone, onBack }: Props) {
       <div style={page}>
         <h2 style={{ fontSize: 20 }}>あなたの声の範囲がわかりました</h2>
         <div style={card}>
-          <div style={{ fontSize: 15 }}>
-            楽に出せる範囲: <b>{noteLabel(result.comfortLowMidi)} 〜 {noteLabel(result.comfortHighMidi)}</b>
-          </div>
+          {result.comfortLowMidi !== null && result.comfortHighMidi !== null ? (
+            <div style={{ fontSize: 15 }}>
+              楽に出せる範囲: <b>{noteLabel(result.comfortLowMidi)} 〜 {noteLabel(result.comfortHighMidi)}</b>
+            </div>
+          ) : (
+            <div style={{ fontSize: 15 }}>
+              今回は「ぶれずに楽に出せた」と言える音はありませんでした(声の調子には波があります)
+            </div>
+          )}
           <div style={{ fontSize: 15, marginTop: 8 }}>
             がんばれば: <b>{noteLabel(result.fullLowMidi)} 〜 {noteLabel(result.fullHighMidi)}</b>
           </div>
+          {(openEnds.low || openEnds.high) && (
+            <p style={{ fontSize: 13, color: '#888', marginTop: 8 }}>
+              {openEnds.low && openEnds.high
+                ? '上も下もまだ余裕がありました。実際の範囲はこれより広いかもしれません'
+                : openEnds.low
+                  ? '下はまだ余裕がありました。実際はもっと低い音も出るかもしれません'
+                  : '上はまだ余裕がありました。実際はもっと高い音も出るかもしれません'}
+            </p>
+          )}
         </div>
         <p style={{ fontSize: 13, color: '#888', marginTop: 12 }}>
-          これからのお手本は「楽に出せる範囲」から選びます
+          {result.comfortLowMidi !== null
+            ? 'これからのお手本は「楽に出せる範囲」から選びます'
+            : 'お手本はいつもの範囲から選びます。また調子のよいときに測り直してみましょう'}
         </p>
         <button style={bigBtn} onClick={onBack}>
           ホームへ
