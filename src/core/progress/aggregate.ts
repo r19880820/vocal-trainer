@@ -89,3 +89,35 @@ export function compareLatestWeeks(points: WeeklyPoint[], higherIsBetter = true)
   const improved = higherIsBetter ? diff > 0 : diff < 0;
   return { current, previous, trend: improved ? 'up' : 'down' };
 }
+
+
+// --- 音ごとのようす(UX_TRAINING.md §7 / 2026-08-16 ユーザー要望) ---
+// skillId `noteAbsCents:<midi>` の snapshot を音ごとに集計する(progressStore.ts が記録元)。
+
+export interface NoteStat {
+  midi: number;
+  /** その音のズレ中央値(cent、値が小さいほど良い) */
+  medianAbsCents: number;
+  count: number;
+}
+
+/**
+ * 音ごとの成績一覧(midi昇順)。paramsVersion が現行と異なる snapshot は除外する。
+ * 表示側の最小回数フィルタ(NOTE_MIN_COUNT)は UI の責務(ここでは全件返す)。
+ */
+export function noteBreakdown(snapshots: SkillSnapshot[]): NoteStat[] {
+  const PREFIX = 'noteAbsCents:';
+  const byMidi = new Map<number, number[]>();
+  for (const s of snapshots) {
+    if (s.paramsVersion !== PARAMS_VERSION) continue;
+    if (!s.skillId.startsWith(PREFIX)) continue;
+    const midi = Number(s.skillId.slice(PREFIX.length));
+    if (!Number.isInteger(midi)) continue;
+    const arr = byMidi.get(midi);
+    if (arr) arr.push(s.value);
+    else byMidi.set(midi, [s.value]);
+  }
+  return [...byMidi.entries()]
+    .map(([midi, values]) => ({ midi, medianAbsCents: median(values), count: values.length }))
+    .sort((a, b) => a.midi - b.midi);
+}

@@ -71,6 +71,11 @@ export const L1_MIN_INTERVAL_SEMITONES = 3; // 仮(出題の最小音程)
 export const L1_MAX_INTERVAL_SEMITONES = 7; // 仮(出題の最大音程)
 export const L1_SAME_PROB = 0.2; // 仮(B=Aとなる確率)
 
+// --- 成長記録「音ごとのようす」(UX_TRAINING.md §7 — 2026-08-16 ユーザー要望) ---
+export const NOTE_GOOD_CENTS = 30; // 仮(音ごとのズレ中央値がこれ以下=「とくい」)
+export const NOTE_OK_CENTS = 60; // 仮(これ以下=「まあまあ」、超えたら「これから」)
+export const NOTE_MIN_COUNT = 2; // 仮(この回数以上練習した音だけ表示 — 1回だけの結果で決めつけない)
+
 // --- UX display (UX_TRAINING.md §4) ---
 export const DISPLAY_RANGE_CENTS = 200; // 仮
 export const ZONE_OK_CENTS = 50; // 仮

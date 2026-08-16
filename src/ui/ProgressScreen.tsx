@@ -1,7 +1,21 @@
 // 成長記録画面(Phase 7)。文言・表示ルールの正本は docs/UX_TRAINING.md「7. 成長記録画面」。
 // ui/ → core/ の公開APIのみ・data/ 経由でストレージを参照(ARCHITECTURE.md 依存ルール)。
 import type { ProgressStore } from '../data/progressStore';
-import { compareLatestWeeks, weeklyBySkill, type Trend } from '../core/progress/aggregate';
+import { compareLatestWeeks, noteBreakdown, weeklyBySkill, type Trend } from '../core/progress/aggregate';
+import { midiToSolfege } from '../core/pitch/scale';
+import { NOTE_GOOD_CENTS, NOTE_MIN_COUNT, NOTE_OK_CENTS } from '../core/constants';
+
+/** ドレミ表記+オクターブ番号(音域チェックRC-3と同様の表示専用ヘルパー)。 */
+function noteName(midi: number): string {
+  return `${midiToSolfege(midi)}${Math.floor(Math.round(midi) / 12) - 1}`;
+}
+
+/** 音ごとの評価ラベル(UX §7「音ごとのようす」— 赤・ネガ語を使わない)。 */
+function noteRating(medianAbsCents: number): string {
+  if (medianAbsCents <= NOTE_GOOD_CENTS) return '◎ とくい';
+  if (medianAbsCents <= NOTE_OK_CENTS) return '○ まあまあ';
+  return '△ これから';
+}
 
 const page: React.CSSProperties = {
   padding: 20,
@@ -111,6 +125,38 @@ export function ProgressScreen({ store, onBack }: { store: ProgressStore; onBack
           </div>
         );
       })}
+      {(() => {
+        // 音ごとのようす(2026-08-16 ユーザー要望「どの音程でイマイチなのかが出るといい」)
+        const notes = noteBreakdown(store.loadAll()).filter((n) => n.count >= NOTE_MIN_COUNT);
+        return (
+          <div style={card}>
+            <div style={{ fontSize: 14, color: '#888' }}>音ごとのようす(音の高さ合わせ)</div>
+            {notes.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#888', marginTop: 8 }}>
+                同じ音を2回以上練習すると、音ごとの「とくい・これから」がここに出てきます
+              </p>
+            ) : (
+              <>
+                {notes.map((n) => (
+                  <div
+                    key={n.midi}
+                    style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, marginTop: 8 }}
+                  >
+                    <span style={{ fontWeight: 700 }}>{noteName(n.midi)}</span>
+                    <span>
+                      {noteRating(n.medianAbsCents)}
+                      <span style={{ color: '#aaa', fontSize: 12 }}>({n.count}回)</span>
+                    </span>
+                  </div>
+                ))}
+                <p style={{ fontSize: 12, color: '#aaa', marginTop: 8 }}>
+                  「これから」の音は伸びしろです。練習すると変わっていきます
+                </p>
+              </>
+            )}
+          </div>
+        );
+      })()}
       <button style={subBtn} onClick={onBack}>
         ← もどる
       </button>

@@ -23,6 +23,9 @@ Phase 7(成長記録)で SkillSnapshot を端末に永続化する。データ�
 
 - 保存するのは validity=ok の結果のみ(無効測定で履歴を汚さない)
 - SkillSnapshot(skillId / value / date ISO / exerciseId / paramsVersion)の追記配列
+- skillId には名前空間付きIDを許容する: `noteAbsCents:<midi>` = 音ごとのズレ中央値
+  (2026-08-16 追加「音ごとのようす」。exerciseId からの midi 復元は recommend が
+  exerciseId を引き継ぐため不正確 — 必ず実目標から記録する)
 - **paramsVersion を必ず持たせ、バージョン跨ぎの数値比較を禁止**(AUDIO_ANALYSIS.md の較正で意味が変わるため)
 - ストレージ実装は interface(getItem/setItem/removeItem)注入で抽象化 — テストはインメモリ、
   将来IndexedDBへ差し替え可能(ARCHITECTURE.md 原則3)

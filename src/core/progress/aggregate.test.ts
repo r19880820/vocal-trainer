@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareLatestWeeks, weeklyBySkill } from './aggregate';
+import { compareLatestWeeks, noteBreakdown, weeklyBySkill } from './aggregate';
 import { PARAMS_VERSION } from '../constants';
 import type { SkillSnapshot } from '../types';
 
@@ -169,5 +169,39 @@ describe('compareLatestWeeks', () => {
       { weekLabel: '2026-W01', median: 20, count: 1 },
     ];
     expect(compareLatestWeeks(points, false).trend).toBe('down');
+  });
+});
+
+
+// --- 音ごとのようす(noteBreakdown — 2026-08-16 ユーザー要望) ---
+describe('noteBreakdown', () => {
+  const snap = (skillId: string, value: number, paramsVersion = PARAMS_VERSION): SkillSnapshot => ({
+    skillId,
+    value,
+    date: '2026-08-16T10:00:00.000Z',
+    exerciseId: 'x',
+    paramsVersion,
+  });
+
+  it('noteAbsCents:* を音ごとに集計しmidi昇順で返す', () => {
+    const rows = noteBreakdown([
+      snap('noteAbsCents:55', 40),
+      snap('noteAbsCents:48', 10),
+      snap('noteAbsCents:55', 60),
+      snap('pitchAccuracy', 0.8), // 対象外
+    ]);
+    expect(rows).toEqual([
+      { midi: 48, medianAbsCents: 10, count: 1 },
+      { midi: 55, medianAbsCents: 50, count: 2 },
+    ]);
+  });
+
+  it('paramsVersionが現行と異なるsnapshotは除外する', () => {
+    const rows = noteBreakdown([snap('noteAbsCents:48', 10, PARAMS_VERSION + 1)]);
+    expect(rows).toEqual([]);
+  });
+
+  it('midiが整数でないIDは無視する', () => {
+    expect(noteBreakdown([snap('noteAbsCents:abc', 10)])).toEqual([]);
   });
 });

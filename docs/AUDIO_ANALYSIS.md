@@ -172,6 +172,7 @@ cents = 1200 * log2(userHz / targetHz)   // features/scoring層で算出
 | DIRECTION_SAME_CENTS | 50 | 仮(「同じ」判定幅) |
 | L1_MIN_INTERVAL_SEMITONES / L1_MAX_INTERVAL_SEMITONES / L1_SAME_PROB | 3 / 7 / 0.2 | 仮(出題) |
 | RANGE_MIN_COMFORT_BINS | 5 | 仮(保存済み「楽な範囲」の最小幅ガード — v1異常値対策) |
+| NOTE_GOOD_CENTS / NOTE_OK_CENTS / NOTE_MIN_COUNT | 30 / 60 / 2 | 仮(成長記録「音ごとのようす」— UX §7.x) |
 | DISPLAY_RANGE_CENTS | ±200 | 仮(UX) |
 | ZONE_OK_CENTS / ZONE_NEAR_CENTS | 50 / 100 | 仮(UX) |
 | LATENCY_BUDGET_MS | 100 | 目標値 |

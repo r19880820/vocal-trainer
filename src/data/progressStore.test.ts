@@ -57,10 +57,11 @@ describe('progressStore', () => {
     const store = createProgressStore(memoryStorage());
     store.append(makeResult());
     const all = store.loadAll();
-    expect(all).toHaveLength(4); // pitchAccuracy, medianAbsCents, pitchStability, attackAccuracy
+    expect(all).toHaveLength(5); // pitchAccuracy, medianAbsCents, noteAbsCents:60, pitchStability, attackAccuracy
     const byId = Object.fromEntries(all.map((s) => [s.skillId, s]));
     expect(byId.pitchAccuracy.value).toBe(0.8);
     expect(byId.medianAbsCents.value).toBe(18);
+    expect(byId['noteAbsCents:60'].value).toBe(18); // 音ごとのようす(UX §7.x)
     expect(byId.pitchStability.value).toBe(0.6);
     expect(byId.attackAccuracy.value).toBe(0.7);
     for (const s of all) {
@@ -78,7 +79,7 @@ describe('progressStore', () => {
       })
     );
     const ids = store.loadAll().map((s) => s.skillId);
-    expect(ids).toEqual(['pitchAccuracy', 'medianAbsCents']);
+    expect(ids).toEqual(['pitchAccuracy', 'medianAbsCents', 'noteAbsCents:60']);
   });
 
   it('append: validity.isValid=false の結果は保存しない(無効測定で履歴を汚さない)', () => {
@@ -111,7 +112,7 @@ describe('progressStore', () => {
     store.append(makeResult({ timestamp: Date.UTC(2026, 6, 1) }));
     store.append(makeResult({ timestamp: Date.UTC(2026, 6, 8) }));
     expect(store.practiceCount()).toBe(2);
-    expect(store.loadAll()).toHaveLength(8);
+    expect(store.loadAll()).toHaveLength(10);
   });
 
   it('clear: 履歴を全消去する', () => {
@@ -199,7 +200,7 @@ describe('progressStore.appendSnapshot(Level 1「音の上下」等、ExerciseRe
     store.append(makeResult());
     store.appendSnapshot('directionAccuracy', 0.6, 'level1-456');
     const all = store.loadAll();
-    expect(all).toHaveLength(5); // append分4件 + appendSnapshot分1件
+    expect(all).toHaveLength(6); // append分5件(noteAbsCents含む) + appendSnapshot分1件
     expect(all[all.length - 1]?.skillId).toBe('directionAccuracy');
   });
 

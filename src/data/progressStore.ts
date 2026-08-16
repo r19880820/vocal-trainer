@@ -59,6 +59,14 @@ function toSnapshots(result: ExerciseResult): SkillSnapshot[] {
   const snapshots: SkillSnapshot[] = [
     { skillId: 'pitchAccuracy', value: m.pitchAccuracy, ...base },
     { skillId: 'medianAbsCents', value: m.medianAbsCents, ...base },
+    // 音ごとの得意/これから(UX §7「音ごとのようす」— 2026-08-16 ユーザー要望)。
+    // skillId名前空間 `noteAbsCents:<midi>`。exerciseIdからのmidi復元は提案生成(recommend)が
+    // exerciseIdを引き継ぐため不正確 — 必ずここで実目標から記録する
+    {
+      skillId: `noteAbsCents:${Math.round(result.spec.targets[0].midiNote)}`,
+      value: m.medianAbsCents,
+      ...base,
+    },
   ];
   if (m.pitchStability !== null) snapshots.push({ skillId: 'pitchStability', value: m.pitchStability, ...base });
   if (m.attackAccuracy !== null) snapshots.push({ skillId: 'attackAccuracy', value: m.attackAccuracy, ...base });
