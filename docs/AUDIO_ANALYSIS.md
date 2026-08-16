@@ -179,6 +179,10 @@ cents = 1200 * log2(userHz / targetHz)   // features/scoring層で算出
 | L3_INTERVAL_OK_CENTS | 75 | 仮(Level 3: 幅が合っている判定 — TRAINING_MODEL.md Level 3) |
 | BIAS_HINT_CENTS | 60 | 仮(方向付きアドバイス発動閾値。100→60: 実ユーザー+70cent傾向で不発だったため分離 — copy.tsローカル定数) |
 | MENU_WARMUP_TONE_MS / MENU_WARMUP_PHONATION_MS | 2500 / 8000 | 仮(今日のメニュー: ウォームアップのロングトーン) |
+| L4_NOTE_STABLE_CENTS / L4_NOTE_MIN_MS / L4_EVENT_BREAK_MS | 50 / 150 / 80 | 仮(Level 4 v2: ノートイベント抽出。**実録音検証(M-3)通過まで確定しない**) |
+| L4_NOTE_OK_CENTS / L4_KEY_OFFSET_CENTS | 75 / 150 | 仮(Level 4 v2: 一致判定はスナップでなく残差cent / キーずれ分岐閾値) |
+| L4_TONE_MS / L4_NOTE_GAP_MS / L4_REPEAT_GAP_MS | 500 / 100 / 200 | 仮(Level 4 v2: お手本。最終音1.4倍。同音連続は広めのギャップ — L1 T36事故予防) |
+| L4_CAPTURE_PER_NOTE_MS / L4_CAPTURE_TAIL_MS / L4_VALID_MIN_VOICED_MS | 1200 / 2500 / 800 | 仮(Level 4 v2: 捕捉上限+無音早期終了 / validity) |
 | MENU_WEAK_SKILL_THRESHOLD | 0.6 | 仮(今日のメニュー: 重点にLevel 1/3を入れる弱さ閾値) |
 | DISPLAY_RANGE_CENTS | ±200 | 仮(UX) |
 | ZONE_OK_CENTS / ZONE_NEAR_CENTS | 50 / 100 | 仮(UX) |

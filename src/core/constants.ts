@@ -79,6 +79,20 @@ export const NOTE_GOOD_CENTS = 30; // 仮(音ごとのズレ中央値がこれ�
 export const NOTE_OK_CENTS = 60; // 仮(これ以下=「まあまあ」、超えたら「これから」)
 export const NOTE_MIN_COUNT = 2; // 仮(この回数以上練習した音だけ表示 — 1回だけの結果で決めつけない)
 
+// --- Level 4「うたのフレーズ」(TRAINING_MODEL.md「Level 4: 短いメロディ」v2 / AUDIO_ANALYSIS.md §8) ---
+// 全て仮値。実録音検証(M-3: 評価コア→実録音での抽出パラメータ確認→UI)を通過するまで確定しない。
+export const L4_NOTE_STABLE_CENTS = 50; // 仮(M-3まで確定しない)。ノートイベント抽出: 現イベントの時間重み付き中央値からこれを超えて外れたら新イベント
+export const L4_NOTE_MIN_MS = 150; // 仮(M-3まで確定しない)。イベント採用に必要な最小有声時間
+export const L4_EVENT_BREAK_MS = 80; // 仮(M-3まで確定しない)。非voicedがこれ以上続いたらvoicedランを分断
+export const L4_NOTE_OK_CENTS = 75; // 仮(M-3まで確定しない)。アライメントのmatch判定(残差cents基準。ハードスナップではない)
+export const L4_KEY_OFFSET_CENTS = 150; // 仮(M-3まで確定しない)。|オフセット|がこれを超えたらキーずれ分岐
+export const L4_TONE_MS = 500; // 仮(M-3まで確定しない)。お手本各音の再生長
+export const L4_NOTE_GAP_MS = 100; // 仮(M-3まで確定しない)。お手本の音間ギャップ
+export const L4_REPEAT_GAP_MS = 200; // 仮(M-3まで確定しない)。お手本の同音連続時の広めギャップ(L1 T36事故予防)
+export const L4_CAPTURE_PER_NOTE_MS = 1200; // 仮(M-3まで確定しない)。捕捉上限=音数×これ+TAIL
+export const L4_CAPTURE_TAIL_MS = 2500; // 仮(M-3まで確定しない)。捕捉上限の末尾余裕
+export const L4_VALID_MIN_VOICED_MS = 800; // 仮(M-3まで確定しない)。validity: 有声合計がこれ未満なら測定不能
+
 // --- 今日のメニュー(セッション化。TRAINING_MODEL.md「今日のメニュー」/ AUDIO_ANALYSIS.md §8) ---
 export const MENU_WARMUP_TONE_MS = 2500; // 仮(ウォームアップのお手本ロングトーン再生長)
 export const MENU_WARMUP_PHONATION_MS = 8000; // 仮(ウォームアップの発声上限)
