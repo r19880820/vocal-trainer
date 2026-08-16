@@ -2,7 +2,10 @@
 import type { ExerciseOutcome } from '../core/exercise/engine';
 import type { ExerciseResult } from '../core/types';
 import { centsBetween, midiToHz } from '../core/pitch/conversions';
-import { ZONE_NEAR_CENTS } from '../core/constants';
+// 方向付きアドバイスの発動閾値。従来は ZONE_NEAR_CENTS(100)を流用していたが、
+// 実ユーザーの一貫した+70cent傾向で発動しなかったため独立の閾値に分離(2026-08-16。
+// UX_TRAINING §3.2b / AUDIO_ANALYSIS §8 と同期)
+const BIAS_HINT_CENTS = 60;
 
 /**
  * 目標に対する符号付きズレの中央値(cent)。負=お手本より低め、正=高め。
@@ -115,10 +118,10 @@ export function resultCopy(outcome: ExerciseOutcome): ResultCopy {
       // ズレの方向が一貫している場合は方向付きのアドバイスにする(UX §3.2b)
       const bias = result.octaveOff === 0 ? signedMedianCentsVsTarget(result) : null;
       let action = 'お手本をよく聞いてから、同じ高さになるように意識して声を伸ばしてみましょう';
-      if (bias !== null && bias <= -ZONE_NEAR_CENTS) {
+      if (bias !== null && bias <= -BIAS_HINT_CENTS) {
         action = 'お手本より低くなりやすいようです。思っているより少し高めをねらって声を出してみましょう';
-      } else if (bias !== null && bias >= ZONE_NEAR_CENTS) {
-        action = 'お手本より高くなりやすいようです。思っているより少し低めをねらって声を出してみましょう';
+      } else if (bias !== null && bias >= BIAS_HINT_CENTS) {
+        action = 'お手本より高くなりやすいようです。力を抜いて、思っているより少し低めをそっとねらってみましょう';
       }
       return {
         praise: pickPraise(outcome),

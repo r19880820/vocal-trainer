@@ -57,10 +57,24 @@ Progress Tracking は Exercise 単位ではなく**この Skill 単位**で履�
 - お手本再生中にユーザーが歌い出した場合: listening 開始前の音声は計測対象外(回り込み対策のガード区間と同じ扱い)
 - タイムアウト値等は AUDIO_ANALYSIS.md 定数表と同期
 
-### Level 3: 2音模倣
+### Level 3: 2音模倣 — 2026-08-16 詳細仕様確定(Phase 6 第2弾)
 
-- 例: C4 → G4
-- 評価: First/Second Note Accuracy / intervalAccuracy / directionAccuracy / Transition Timing
+- 2音再生(A→B)→ ユーザーが「んー、んー」で**高さも含めて**真似る(Level 1 との違い: 方向だけでなく音の高さと幅を見る)
+- **出題**: Level 1 と同じ(楽な範囲のスケール音、|B−A|=3〜7半音。ただし same 出題は無し — 幅の練習なので)
+- **フロー**: Level 1 と同一様式(♪1つ目/♪2つ目表示 → 🎤合図 → 捕捉5秒 → 録音→オフライン解析)。1問完結型(結果画面 → もう一回/つぎの問題/ホーム)
+- **ユーザー発声の分割**: Level 1 と同じ(2セグメント or 前半/後半フォールバック — つなげて歌ってOK)
+- **評価**(セグメント1↔A、セグメント2↔B。cents はオクターブ補正なしの素の値):
+  - firstNoteCents / secondNoteCents: 各セグメント中央値 vs 目標のcent差
+  - **intervalAccuracy** = clamp(1 − |ユーザーの幅 − 目標の幅| / INTERVAL_NORM_CENTS(200), 0, 1)
+  - **directionAccuracy** = 方向一致(Level 1 と同じ判定)
+  - Transition Timing は**未実装**(フォールバック経路に遷移点が無いため。Phase 8 リズム系と合流予定)
+- **フィードバック(1点だけ・責めない。優先順)**:
+  1. 方向不一致 → 「まず2つ目の向きから。お手本は ⤴上がる でした」
+  2. 幅のズレ |e| > L3_INTERVAL_OK_CENTS(75) → 「向きはOK!2つ目をもう少し高く(低く)すると幅が合います」
+  3. 両方の音が同方向にずれ(幅はOK) → 「音の幅はいいですね。全体をもう少し高め(低め)に」
+  4. 合格 → 「2つともよく合っています!」
+- **記録**: intervalAccuracy / directionAccuracy を SkillSnapshot 保存(成長記録に「音程の幅」行を追加。
+  Level 2 の弱点診断体系には流さない — intervalAccuracy低→Level 3 提案の接続は将来)
 
 ### Level 4: 短いメロディ(3〜5音)
 

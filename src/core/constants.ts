@@ -71,6 +71,9 @@ export const L1_MIN_INTERVAL_SEMITONES = 3; // 仮(出題の最小音程)
 export const L1_MAX_INTERVAL_SEMITONES = 7; // 仮(出題の最大音程)
 export const L1_SAME_PROB = 0.2; // 仮(B=Aとなる確率)
 
+// --- Level 3「2音模倣」(TRAINING_MODEL.md「Level 3: 2音模倣」/ AUDIO_ANALYSIS.md §8) ---
+export const L3_INTERVAL_OK_CENTS = 75; // 仮(幅が合っている判定。これを超える誤差は「幅のズレ」フィードバック)
+
 // --- 成長記録「音ごとのようす」(UX_TRAINING.md §7 — 2026-08-16 ユーザー要望) ---
 export const NOTE_GOOD_CENTS = 30; // 仮(音ごとのズレ中央値がこれ以下=「とくい」)
 export const NOTE_OK_CENTS = 60; // 仮(これ以下=「まあまあ」、超えたら「これから」)

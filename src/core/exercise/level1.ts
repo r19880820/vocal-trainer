@@ -48,7 +48,8 @@ function scaleNotesInRange(lowMidi: number, highMidi: number): number[] {
   return pool;
 }
 
-function resolvePool(comfortRange: { lowMidi: number; highMidi: number } | null, range: VoiceRange): number[] {
+/** Level 3(level3.ts)から再利用するため export する(TRAINING_MODEL.md「Level 3」出題はLevel 1と同一制約 — 重複実装を避ける)。 */
+export function resolvePool(comfortRange: { lowMidi: number; highMidi: number } | null, range: VoiceRange): number[] {
   if (comfortRange) {
     const pool = scaleNotesInRange(comfortRange.lowMidi, comfortRange.highMidi);
     if (pool.length > 0) return pool;
@@ -69,7 +70,8 @@ interface CandidatePick {
  * 実装判断。仕様書はこのケースを明記していないが、狭い comfortRange 指定時に理論上
  * 到達しうるため安全側として same を返す。詳細は最終報告)。
  */
-function pickIntervalCandidates(
+/** Level 3(level3.ts)から再利用するため export する(同一の帯域・間隔制約 — 重複実装を避ける)。 */
+export function pickIntervalCandidates(
   pool: number[],
   aMidi: number,
   preferredDirection: 'up' | 'down'
@@ -134,7 +136,8 @@ interface VoicedSegment {
  * またがず同一セグメントとして扱う(息継ぎ等の短いブレを許容)。返す各セグメントの samples は
  * voiced サンプルのみ(非voicedサンプル自体はギャップ判定にのみ使い、中央値計算には含めない)。
  */
-function splitVoicedSegments(samples: ProcessedPitchSample[]): VoicedSegment[] {
+/** Level 3(level3.ts)から再利用するため export する(ユーザー発声の分割ロジックはLevel 1と同一 — TRAINING_MODEL.md「Level 3」)。 */
+export function splitVoicedSegments(samples: ProcessedPitchSample[]): VoicedSegment[] {
   const durations = sampleDurationsMs(samples);
   const segments: VoicedSegment[] = [];
   let current: ProcessedPitchSample[] = [];
@@ -163,13 +166,15 @@ function splitVoicedSegments(samples: ProcessedPitchSample[]): VoicedSegment[] {
   return segments;
 }
 
-function median(values: number[]): number {
+/** Level 3(level3.ts)から再利用するため export する。 */
+export function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
-function classify(deltaCents: number): Direction {
+/** Level 3(level3.ts)がユーザーの2音間cent差の分類(up/down/same判定)に再利用するため export する。 */
+export function classify(deltaCents: number): Direction {
   return Math.abs(deltaCents) <= DIRECTION_SAME_CENTS ? 'same' : deltaCents > 0 ? 'up' : 'down';
 }
 

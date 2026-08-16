@@ -128,6 +128,9 @@ cents = 1200 * log2(userHz / targetHz)   // features/scoring層で算出
 ## 7. 既知のリスクと対策方針
 
 - **お手本音の回り込み** — OS前処理無効化の直接の帰結としてAECが働かない。お手本再生がマイクに入るとYINは「お手本を検出して完璧」と表示する。対策: (1) **イヤホン推奨をUXフローに組込み**(未装着時は注意表示)、(2) 再生終了後**200〜300msのガード区間**を置いてから計測開始、(3) お手本音のエンベロープに明示的リリース(残響を残さない)。Level 4の同時再生比較は将来課題(お手本F0既知を利用した回り込み検出を未確定事項に登録済み)
+- **お手本音色は倍音付き**(基音1.0+2倍音0.4+3倍音0.2、PeriodicWave正規化) — 純サイン波は
+  音高知覚が不安定で高め/低めに歌いやすい(2026-08-16 実ユーザーの一貫した+70cent傾向を受けて
+  純音から変更。セルフテスト440Hzは倍音付きでも成立 — YINは倍音入り信号でスイープ検証済み)
 - **ささやき/息漏れ声** — voicing=unclear として検出し、理由別のフィードバック文言を出す(UX_TRAINING.md)。誤った数値を出さない
 - **端末マイク差** — 相対gate(§3-1)+起動時セルフテスト(§1)で吸収
 - **背景ノイズ** — MVPでは静かな環境前提+ノイズフロア測定で案内。頑健化はMVP外
@@ -173,6 +176,8 @@ cents = 1200 * log2(userHz / targetHz)   // features/scoring層で算出
 | L1_MIN_INTERVAL_SEMITONES / L1_MAX_INTERVAL_SEMITONES / L1_SAME_PROB | 3 / 7 / 0.2 | 仮(出題) |
 | RANGE_MIN_COMFORT_BINS | 5 | 仮(保存済み「楽な範囲」の最小幅ガード — v1異常値対策) |
 | NOTE_GOOD_CENTS / NOTE_OK_CENTS / NOTE_MIN_COUNT | 30 / 60 / 2 | 仮(成長記録「音ごとのようす」— UX §7.x) |
+| L3_INTERVAL_OK_CENTS | 75 | 仮(Level 3: 幅が合っている判定 — TRAINING_MODEL.md Level 3) |
+| BIAS_HINT_CENTS | 60 | 仮(方向付きアドバイス発動閾値。100→60: 実ユーザー+70cent傾向で不発だったため分離 — copy.tsローカル定数) |
 | DISPLAY_RANGE_CENTS | ±200 | 仮(UX) |
 | ZONE_OK_CENTS / ZONE_NEAR_CENTS | 50 / 100 | 仮(UX) |
 | LATENCY_BUDGET_MS | 100 | 目標値 |

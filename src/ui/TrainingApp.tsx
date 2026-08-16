@@ -17,9 +17,10 @@ import { Indicator } from './Indicator';
 import { ProgressScreen } from './ProgressScreen';
 import { RangeCheckScreen } from './RangeCheckScreen';
 import { Level1Screen } from './Level1Screen';
+import { Level3Screen } from './Level3Screen';
 import { liveStatusText, resultCopy, signedMedianCentsVsTarget } from './copy';
 
-type Screen = 'home' | 'micCheck' | 'range' | 'training' | 'result' | 'progress' | 'rangeCheck' | 'level1';
+type Screen = 'home' | 'micCheck' | 'range' | 'training' | 'result' | 'progress' | 'rangeCheck' | 'level1' | 'level3';
 
 // localStorage を包むだけの薄いラッパーなのでモジュールスコープで1つ生成すれば十分(ADR-004)
 const progressStore = createProgressStore();
@@ -133,6 +134,8 @@ export function TrainingApp() {
   const rangeSessionRef = useRef<AudioSession | null>(null);
   // Level 1「音の上下」専用のAudioSession(rangeSessionRefと同じ理由で専用インスタンスを生成する)。
   const level1SessionRef = useRef<AudioSession | null>(null);
+  // Level 3「2音まねっこ」専用のAudioSession(level1SessionRefと同じ理由で専用インスタンスを生成する)。
+  const level3SessionRef = useRef<AudioSession | null>(null);
 
   if (engineRef.current === null) {
     engineRef.current = new ExerciseEngine(new AudioSession(), {
@@ -158,7 +161,7 @@ export function TrainingApp() {
   const engine = engineRef.current;
 
   // バックグラウンド遷移・着信 → 録音破棄して idle(TRAINING_MODEL.md 遷移表)。
-  // 音域チェック・Level1中も同じ安全則を適用する(専用session両方のマイクを必ず解放する —
+  // 音域チェック・Level1・Level3中も同じ安全則を適用する(専用sessionすべてのマイクを必ず解放する —
   // 放置するとバックグラウンドでもマイクが起動したままになる)。
   useEffect(() => {
     const onHide = () => {
@@ -168,6 +171,8 @@ export function TrainingApp() {
         rangeSessionRef.current = null;
         level1SessionRef.current?.stop();
         level1SessionRef.current = null;
+        level3SessionRef.current?.stop();
+        level3SessionRef.current = null;
         setScreen('home');
       }
     };
@@ -259,6 +264,20 @@ export function TrainingApp() {
     setScreen('home');
   };
 
+  // ---- Level 3「2音まねっこ」への遷移(Level 1と同じ方式) ----
+  const onStartLevel3 = () => {
+    setErrorMsg(null);
+    engine.cancel();
+    level3SessionRef.current = new AudioSession();
+    setScreen('level3');
+  };
+
+  const onLevel3Back = () => {
+    level3SessionRef.current?.stop();
+    level3SessionRef.current = null;
+    setScreen('home');
+  };
+
   const phase: 'playing' | 'waiting' | 'active' =
     engineState === 'playingReference' ? 'playing' : engineState === 'listening' ? 'waiting' : 'active';
   const statusText = useStatusText(live, phase);
@@ -306,6 +325,13 @@ export function TrainingApp() {
           <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>音の上下を聞き分ける練習</div>
         </div>
         <button style={{ ...bigBtn, background: '#1565c0' }} onClick={onStartLevel1}>
+          この練習をはじめる
+        </button>
+        <div style={card}>
+          <div style={{ fontSize: 14, color: '#888' }}>耳と声のトレーニング</div>
+          <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>2つの音をまねる練習</div>
+        </div>
+        <button style={{ ...bigBtn, background: '#1565c0' }} onClick={onStartLevel3}>
           この練習をはじめる
         </button>
         <p style={{ fontSize: 12, color: '#aaa', marginTop: 24 }}>
@@ -519,6 +545,11 @@ export function TrainingApp() {
   // ---- Level 1「音の上下」(L1-1〜L1-3) ----
   if (screen === 'level1' && level1SessionRef.current) {
     return <Level1Screen session={level1SessionRef.current} onBack={onLevel1Back} />;
+  }
+
+  // ---- Level 3「2音まねっこ」(L3-1〜L3-3) ----
+  if (screen === 'level3' && level3SessionRef.current) {
+    return <Level3Screen session={level3SessionRef.current} onBack={onLevel3Back} />;
   }
 
   return null;

@@ -230,7 +230,14 @@ export class AudioSession {
     const attackS = 0.02;
     const releaseS = 0.15;
     const sustainS = Math.max(durationMs / 1000 - attackS - releaseS, 0.05);
-    osc.type = 'sine';
+    // お手本音色: 純サイン波→倍音付き(基音1.0+2倍音0.4+3倍音0.2)。純音は音高知覚が
+    // 不安定で高め/低めに歌いやすい(2026-08-16 ユーザーの+70cent傾向を受けて変更 —
+    // AUDIO_ANALYSIS.md §7)。PeriodicWaveは既定で正規化されるため音量は安全
+    const wave = ctx.createPeriodicWave(
+      new Float32Array([0, 0, 0, 0]),
+      new Float32Array([0, 1, 0.4, 0.2]),
+    );
+    osc.setPeriodicWave(wave);
     osc.frequency.value = hz;
     gain.gain.setValueAtTime(0, t0);
     gain.gain.linearRampToValueAtTime(0.35, t0 + attackS);
