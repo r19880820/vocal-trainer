@@ -3,7 +3,9 @@
 import type { ProgressStore } from '../data/progressStore';
 import { compareLatestWeeks, noteBreakdown, weeklyBySkill, type Trend } from '../core/progress/aggregate';
 import { midiToSolfege } from '../core/pitch/scale';
-import { NOTE_GOOD_CENTS, NOTE_MIN_COUNT, NOTE_OK_CENTS } from '../core/constants';
+import { NOTE_GOOD_CENTS, NOTE_MIN_COUNT, NOTE_OK_CENTS, PARAMS_VERSION } from '../core/constants';
+import { SONGS } from '../core/exercise/songs';
+import type { SkillSnapshot } from '../core/types';
 
 /** ドレミ表記+オクターブ番号(音域チェックRC-3と同様の表示専用ヘルパー)。 */
 function noteName(midi: number): string {
@@ -69,6 +71,41 @@ const SKILLS: SkillDef[] = [
   { id: 'intervalAccuracy', label: '音程の幅', higherIsBetter: true, format: (v) => `${Math.round(v * 100)}%` },
 ];
 
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+interface SongStat {
+  songId: string;
+  medianAccuracy: number;
+  count: number;
+}
+
+/**
+ * skillId `melodyAccuracy:<songId>` の snapshot を曲ごとに集計する(Level4Screen.tsx が記録元)。
+ * core/progress/aggregate.ts の noteBreakdown と同じ考え方だが、level4.ts/songs.ts 同様
+ * core/ 側ファイルは変更しない制約のため、UI側にローカル実装する(詳細は最終報告)。
+ */
+function melodyBreakdown(snapshots: SkillSnapshot[]): SongStat[] {
+  const PREFIX = 'melodyAccuracy:';
+  const bySong = new Map<string, number[]>();
+  for (const s of snapshots) {
+    if (s.paramsVersion !== PARAMS_VERSION) continue;
+    if (!s.skillId.startsWith(PREFIX)) continue;
+    const songId = s.skillId.slice(PREFIX.length);
+    const arr = bySong.get(songId);
+    if (arr) arr.push(s.value);
+    else bySong.set(songId, [s.value]);
+  }
+  return [...bySong.entries()].map(([songId, values]) => ({
+    songId,
+    medianAccuracy: median(values),
+    count: values.length,
+  }));
+}
+
 function arrowFor(trend: Trend | null): string {
   if (trend === 'up') return '↗';
   if (trend === 'down') return '↘';
@@ -78,8 +115,10 @@ function arrowFor(trend: Trend | null): string {
 export function ProgressScreen({ store, onBack }: { store: ProgressStore; onBack: () => void }) {
   const practiceCount = store.practiceCount();
 
-  // データが無い場合の空状態(UX_TRAINING.md §1.5: 責めない・不安を煽らない)
-  if (practiceCount === 0) {
+  // データが無い場合の空状態(UX_TRAINING.md §1.5: 責めない・不安を煽らない)。
+  // 判定は practiceCount(=pitchAccuracy件数)ではなく全snapshot数で行う — Level 4のみ
+  // 練習したユーザー(melodyAccuracy:*しか無い)を締め出さない(Codexレビュー中)
+  if (store.loadAll().length === 0) {
     return (
       <div style={page}>
         <h2 style={{ fontSize: 20 }}>せいちょう</h2>
@@ -155,6 +194,33 @@ export function ProgressScreen({ store, onBack }: { store: ProgressStore; onBack
                 </p>
               </>
             )}
+          </div>
+        );
+      })()}
+      {(() => {
+        // うたのフレーズ(Level 4)。データが無い曲・データが1件も無ければセクション自体を出さない
+        // (UX_TRAINING.md §1.5: 空状態は不安を煽らない — 音ごとのようすの空状態と違い、
+        // ここは「まだ0件」を案内する固定文言を出す仕様がタスクに含まれないため非表示にする)。
+        const songStats = melodyBreakdown(store.loadAll());
+        if (songStats.length === 0) return null;
+        return (
+          <div style={card}>
+            <div style={{ fontSize: 14, color: '#888' }}>うたのフレーズ</div>
+            {songStats.map((stat) => {
+              const title = SONGS.find((s) => s.id === stat.songId)?.title ?? stat.songId;
+              return (
+                <div
+                  key={stat.songId}
+                  style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, marginTop: 8 }}
+                >
+                  <span style={{ fontWeight: 700 }}>{title}</span>
+                  <span>
+                    {Math.round(stat.medianAccuracy * 100)}%
+                    <span style={{ color: '#aaa', fontSize: 12 }}>({stat.count}回)</span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         );
       })()}

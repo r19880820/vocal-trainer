@@ -12,6 +12,31 @@ export interface CaptureInfo {
 export type PitchCallback = (sample: RawPitchSample) => void;
 export type ErrorCallback = (message: string) => void;
 
+/** Level 4「うたのフレーズ」お手本メロディの1音。TRAINING_MODEL.md「Level 4」参照。 */
+export interface MelodyNote {
+  hz: number;
+  durationMs: number;
+  /** この音の後に置く無音ギャップ(ms)。曲内の最終音では使われない(次の音が無いため)。 */
+  gapAfterMs: number;
+}
+
+/**
+ * 各音の開始オフセット(ms、先頭音=0)を純関数で計算する(M-6設計判断: 呼び出し側=UIが
+ * 「♪3/7 ソ『み』」の表示同期に使えるよう公開する。playMelody自身もこれで絶対時刻を組み立てるため、
+ * 表示とAudioContextスケジューリングが同じ計算式を共有し、ズレない)。
+ * MelodyNoteをplatform層(このファイル)に置いたため、スケジュール計算も同じファイルに置く
+ * (core/へ型を分割するとplatform→core→platformの行き来が増えるだけで得るものがない — 詳細は最終報告)。
+ */
+export function melodySchedule(notes: MelodyNote[]): number[] {
+  const offsets: number[] = [];
+  let t = 0;
+  for (const note of notes) {
+    offsets.push(t);
+    t += note.durationMs + note.gapAfterMs;
+  }
+  return offsets;
+}
+
 // worklet はバンドラ非依存にするためインラインコード + Blob URL で登録する
 const WORKLET_CODE = `
 class CaptureProcessor extends AudioWorkletProcessor {
@@ -248,6 +273,70 @@ export class AudioSession {
     osc.stop(t0 + attackS + sustainS + releaseS + 0.01);
     await new Promise<void>((resolve) => {
       osc.onended = () => resolve();
+    });
+    if (ctx !== this.ctx) void ctx.close();
+  }
+
+  /**
+   * お手本メロディの再生(Level 4「うたのフレーズ」)。1本のAudioContextタイムラインへ
+   * **絶対時刻で全音をスケジュール**する(逐次awaitはジッタで曲に聞こえない — レビューM-6)。
+   * 音色はplayToneと同じ(基音+倍音のPeriodicWave、attack/releaseエンベロープ)。
+   * PeriodicWaveは1つ生成して全オシレータで共有する(Web Audio APIの仕様上、波形データを
+   * 複数オシレータへ適用しても相互に干渉しない — 生成コストを削減する)。
+   * 契約: playTone同様、**最後の音の鳴り終わりで resolve する**(呼び出し側はこれを起点に
+   * ガード区間を取れる)。
+   */
+  async playMelody(notes: MelodyNote[]): Promise<void> {
+    if (notes.length === 0) return;
+    const ctx = this.ctx ?? new AudioContext();
+    await ctx.resume();
+    const offsets = melodySchedule(notes);
+    const attackS = 0.02;
+    const releaseS = 0.08;
+    const t0 = ctx.currentTime;
+    const wave = ctx.createPeriodicWave(
+      new Float32Array([0, 0, 0, 0]),
+      new Float32Array([0, 1, 0.4, 0.2]),
+    );
+
+    let lastOsc: OscillatorNode | null = null;
+    let lastGain: GainNode | null = null;
+    notes.forEach((note, i) => {
+      const startS = t0 + offsets[i] / 1000;
+      const sustainS = Math.max(note.durationMs / 1000 - attackS - releaseS, 0.02);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.setPeriodicWave(wave);
+      osc.frequency.value = note.hz;
+      gain.gain.setValueAtTime(0, startS);
+      gain.gain.linearRampToValueAtTime(0.35, startS + attackS);
+      gain.gain.setValueAtTime(0.35, startS + attackS + sustainS);
+      gain.gain.linearRampToValueAtTime(0, startS + attackS + sustainS + releaseS);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(startS);
+      osc.stop(startS + attackS + sustainS + releaseS + 0.01);
+      // 終了済みノードをグラフに蓄積させない(Codexレビュー低: 「もう一回」連打での蓄積防止)。
+      // 最後の音は下のPromise側で disconnect+resolve をまとめて行う(onended上書き競合の防止)
+      osc.onended = () => {
+        osc.disconnect();
+        gain.disconnect();
+      };
+      lastOsc = osc;
+      lastGain = gain;
+    });
+
+    await new Promise<void>((resolve) => {
+      if (!lastOsc || !lastGain) {
+        resolve();
+        return;
+      }
+      const osc = lastOsc;
+      const gain = lastGain;
+      osc.onended = () => {
+        osc.disconnect();
+        gain.disconnect();
+        resolve();
+      };
     });
     if (ctx !== this.ctx) void ctx.close();
   }

@@ -53,7 +53,11 @@
 
 | T42 | **Level 4「うたのフレーズ」Opus設計レビュー**(実装前) | Opus | ✅ 完了(**Critical 5/Major 11** — 位置比較の崩壊・同音連続の融合・キーずれ無視・+70cent誤スナップ・お手本同音問題を実装前に検出。「歌詞で歌う」への設計転換を提案→採用) |
 | T43 | Level 4 仕様v2への全面改稿(縮約+オフセット除去+編集距離アライメント・歌詞方式・チップ列表示・実録音検証を先頭に置く実装順序) | Fable | ✅ 完了(TRAINING_MODEL v2 / UX 5f / §8定数) |
-| T44 | Level 4 評価コア実装(純関数+Critical回帰テスト。**UIは実録音検証(M-3)通過後**) | Sonnet | 🔄 実行中 |
+| T44 | Level 4 評価コア実装(純関数+Critical回帰テスト。**UIは実録音検証(M-3)通過後**) | Sonnet(実装)/Fable(検証) | ✅ 完了(commit 93faf58、**416テスト全PASS**。検証ハーネス=src/level4.validation.test.ts) |
+| T45 | **Level 4 実録音検証(M-3)** | ユーザー+Fable | ✅ **3/3通過**(take1=んーチューリップ→形6/6・take2=かえる→6/7で正しく識別・take3=ドレミ版チューリップ→5/6で正しく識別。曲識別3/3、診断妥当。L4_SILENCE_END_MS=1500を実測から確定) |
+| T46 | Level 4 UI実装(曲えらび→絶対時刻スケジュール再生→歌う→チップ列結果。playMelody追加・成長記録「うたのフレーズ」) | Sonnet(実装)/Fable(検証)/Codex(クロスレビュー予定) | 🔄 Sonnet実装完了(typecheck✓/**421テスト全PASS**/build✓。新規: src/ui/Level4Screen.tsx、src/platform/audioSession.test.ts。Fable検証+Codexクロスレビュー待ち — 実機未検証) |
+
+## 次の候補(Phase 6 以降 — 着手前にユーザー確認不要、推奨順)
 
 ## 次の候補(Phase 6 以降 — 着手前にユーザー確認不要、推奨順)
 

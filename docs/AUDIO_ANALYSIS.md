@@ -183,6 +183,7 @@ cents = 1200 * log2(userHz / targetHz)   // features/scoring層で算出
 | L4_NOTE_OK_CENTS / L4_KEY_OFFSET_CENTS | 75 / 150 | 仮(Level 4 v2: 一致判定はスナップでなく残差cent / キーずれ分岐閾値) |
 | L4_TONE_MS / L4_NOTE_GAP_MS / L4_REPEAT_GAP_MS | 500 / 100 / 200 | 仮(Level 4 v2: お手本。最終音1.4倍。同音連続は広めのギャップ — L1 T36事故予防) |
 | L4_CAPTURE_PER_NOTE_MS / L4_CAPTURE_TAIL_MS / L4_VALID_MIN_VOICED_MS | 1200 / 2500 / 800 | 仮(Level 4 v2: 捕捉上限+無音早期終了 / validity) |
+| L4_SILENCE_END_MS | 1500 | 仮→実測根拠あり(早期終了の無音閾値。フレーズ間の息継ぎ実測~800msを跨ぐ必要 — 2026-08-17 実録音検証take1) |
 | MENU_WEAK_SKILL_THRESHOLD | 0.6 | 仮(今日のメニュー: 重点にLevel 1/3を入れる弱さ閾値) |
 | DISPLAY_RANGE_CENTS | ±200 | 仮(UX) |
 | ZONE_OK_CENTS / ZONE_NEAR_CENTS | 50 / 100 | 仮(UX) |

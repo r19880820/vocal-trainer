@@ -92,6 +92,7 @@ export const L4_REPEAT_GAP_MS = 200; // 仮(M-3まで確定しない)。お手�
 export const L4_CAPTURE_PER_NOTE_MS = 1200; // 仮(M-3まで確定しない)。捕捉上限=音数×これ+TAIL
 export const L4_CAPTURE_TAIL_MS = 2500; // 仮(M-3まで確定しない)。捕捉上限の末尾余裕
 export const L4_VALID_MIN_VOICED_MS = 800; // 仮(M-3まで確定しない)。validity: 有声合計がこれ未満なら測定不能
+export const L4_SILENCE_END_MS = 1500; // 仮→実測根拠あり(早期終了の無音閾値。フレーズ間の息継ぎ実測~800msを跨ぐ必要 — 2026-08-17 実録音検証take1)
 
 // --- 今日のメニュー(セッション化。TRAINING_MODEL.md「今日のメニュー」/ AUDIO_ANALYSIS.md §8) ---
 export const MENU_WARMUP_TONE_MS = 2500; // 仮(ウォームアップのお手本ロングトーン再生長)

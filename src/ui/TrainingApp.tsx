@@ -19,6 +19,7 @@ import { ProgressScreen } from './ProgressScreen';
 import { RangeCheckScreen } from './RangeCheckScreen';
 import { Level1Screen } from './Level1Screen';
 import { Level3Screen } from './Level3Screen';
+import { Level4Screen } from './Level4Screen';
 import { liveStatusText, resultCopy, signedMedianCentsVsTarget } from './copy';
 
 type Screen =
@@ -31,6 +32,7 @@ type Screen =
   | 'rangeCheck'
   | 'level1'
   | 'level3'
+  | 'level4'
   | 'menuIntro'
   | 'menuStepIntro'
   | 'menuDone';
@@ -158,6 +160,8 @@ export function TrainingApp() {
   const level1SessionRef = useRef<AudioSession | null>(null);
   // Level 3「2音まねっこ」専用のAudioSession(level1SessionRefと同じ理由で専用インスタンスを生成する)。
   const level3SessionRef = useRef<AudioSession | null>(null);
+  // Level 4「うたのフレーズ」専用のAudioSession(level1SessionRefと同じ理由で専用インスタンスを生成する)。
+  const level4SessionRef = useRef<AudioSession | null>(null);
 
   if (engineRef.current === null) {
     engineRef.current = new ExerciseEngine(new AudioSession(), {
@@ -195,6 +199,8 @@ export function TrainingApp() {
         level1SessionRef.current = null;
         level3SessionRef.current?.stop();
         level3SessionRef.current = null;
+        level4SessionRef.current?.stop();
+        level4SessionRef.current = null;
         setMenu(null); // メニュー実行中のバックグラウンド遷移も途中離脱として扱う(TRAINING_MODEL.md 遷移表)
         setScreen('home');
       }
@@ -422,6 +428,21 @@ export function TrainingApp() {
     setScreen('home');
   };
 
+  // ---- Level 4「うたのフレーズ」への遷移(Level 1/3と同じ方式) ----
+  const onStartLevel4 = () => {
+    setErrorMsg(null);
+    engine.cancel();
+    level4SessionRef.current = new AudioSession();
+    setScreen('level4');
+  };
+
+  const onLevel4Back = () => {
+    level4SessionRef.current?.stop();
+    level4SessionRef.current = null;
+    setMenu(null); // メニュー中の途中離脱も含む(単独起動時はもともとnullなので無害)
+    setScreen('home');
+  };
+
   const phase: 'playing' | 'waiting' | 'active' =
     engineState === 'playingReference' ? 'playing' : engineState === 'listening' ? 'waiting' : 'active';
   const statusText = useStatusText(live, phase);
@@ -463,7 +484,7 @@ export function TrainingApp() {
             音域をはかる
           </button>
         )}
-        {practiceCount > 0 && (
+        {(practiceCount > 0 || progressStore.loadAll().length > 0) && (
           <button style={subBtn} onClick={() => setScreen('progress')}>
             せいちょうを見る
           </button>
@@ -489,6 +510,15 @@ export function TrainingApp() {
           <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>2つの音をまねる練習</div>
         </div>
         <button style={{ ...bigBtn, background: '#1565c0' }} onClick={onStartLevel3}>
+          この練習をはじめる
+        </button>
+        <div style={card}>
+          <div style={{ fontSize: 14, color: '#888' }}>うたの練習</div>
+          <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>
+            うたのフレーズ(チューリップ・かえるの合唱)
+          </div>
+        </div>
+        <button style={{ ...bigBtn, background: '#1565c0' }} onClick={onStartLevel4}>
           この練習をはじめる
         </button>
         <p style={{ fontSize: 12, color: '#aaa', marginTop: 24 }}>
@@ -812,6 +842,11 @@ export function TrainingApp() {
         onComplete={menu ? onMenuStepComplete : undefined}
       />
     );
+  }
+
+  // ---- Level 4「うたのフレーズ」(L4-1〜L4-3) ----
+  if (screen === 'level4' && level4SessionRef.current) {
+    return <Level4Screen session={level4SessionRef.current} onBack={onLevel4Back} />;
   }
 
   return null;
